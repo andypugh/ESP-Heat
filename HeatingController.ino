@@ -1,6 +1,7 @@
 /*********
-  Rui Santos
-  Complete project details at https://randomnerdtutorials.com  
+  Andy Pugh 2020
+  
+  Based on work by Rui Saontos: https://randomnerdtutorials.com  
 *********/
 
 // Load Wi-Fi library
