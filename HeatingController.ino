@@ -49,7 +49,7 @@ int pump_mask[num_pumps] = {0x01, 0x06, 0x18};
 int run_on_mask[num_pumps] = {0x0, 0x0, 0x1};
 //For each boiler the pump mask is AND-ed with the active zone bitfield. Non-zero turns on the pump
 int boiler_mask[num_boilers] = {0x1F};
-int run_on_time = 120;
+unsigned long  run_on_time = 120000; //milliseconds
 const char* off_colour = "#aaffaa";
 const char* on_colour = "#ffaaaa";
 
@@ -57,7 +57,7 @@ const char* on_colour = "#ffaaaa";
 
 const char* valve_states[7] ={"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "temp sensor FAULT"};
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
-int valve_timeout[num_zones];
+unsigned long valve_timeout[num_zones];
 int valve[num_zones] = {0}; // valve status
 int boiler[num_boilers] = {0}; // boiler state
 long zone[num_zones] = {0}; // bit field. 0 = 00:00 to 01:00 ... 23 = 23:00 to 00. 24 = manual-on, 25 = manual-off
@@ -192,7 +192,7 @@ void loop(){
             Serial.print("Turning on zone ");
             Serial.println(z);
             valve[z] = 1;
-            valve_timeout[z] = 120;
+            valve_timeout[z] = millis();
           }
           break;
         case 1: // valve opening
@@ -201,19 +201,20 @@ void loop(){
             valve[z] = 2;
             break;
           }
-
-          // TESTING!!!!!!!!
-          if (--valve_timeout[z] <=100) { // timeout opening
-            bitSet(zone_on, z);
+          if (millis() - valve_timeout[z] > 60000) {
+            // TESTING ***************************************
             valve[z] = 2;
+            break;
+            // TESTING ***************************************
+            error_flag = 5;
+            valve[z] = 5;
           }
-          // TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           break;
         case 2: // Valve opened
           if (temp[z] > demand_temp + hyst) {
             digitalWrite(zone_out[z], HIGH);
             valve[z] = 3;
-            valve_timeout[z] = 120;
+            valve_timeout[z] = millis();
             bitClear(zone_on, z);
             Serial.print("Turning Off zone ");
             Serial.println(z);
@@ -224,7 +225,7 @@ void loop(){
             valve[z] = 0;
             break;
           }
-          if (--valve_timeout[z] <=1) { // timeout closing
+          if (millis() - valve_timeout[z] > 60000) { // timeout closing
             valve[z] = 4;
             error_flag = 4;
           }
@@ -270,7 +271,7 @@ void loop(){
           break;
         case 1: // boiler on
           if (! zone_on && boiler_mask[i]) {
-            run_on_timer[i] = run_on_time;
+            run_on_timer[i] = millis();
             bitClear(boiler_on, i);
             bitSet(run_on, i);
             boiler[i] = 2;
@@ -278,11 +279,13 @@ void loop(){
           }
           break;
         case 2: // run-on timer
-          if (--run_on_timer[i] <= 1){
+          // check for timout _or_ re-activation
+          if (((millis() - run_on_timer[i]) > run_on_time) || (run_on && boiler_mask[i])){
             bitClear(run_on, i);
-            boiler[i] = 2;
+            boiler[i] = 0;
             break;
           }
+          break;
         default:
           error_flag = 10;
       }
