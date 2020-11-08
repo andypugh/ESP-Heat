@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include "time.h"
 #include "EEPROM.h"
+// https://github.com/cybergibbons/DS2482_OneWire _NOT_ the standard library
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
@@ -30,14 +31,13 @@ int units = 0; // Set to 1 for Fahrenheit
 int boiler_out[num_boilers] = {33};
 int zone_out[num_zones] = {25, 26, 27, 14, 19};
 int zone_in[num_zones] = {36, 39, 34, 35, 32};
-int pump_out[num_pumps] = {22, 1, 21};
+int pump_out[num_pumps] = {1, 3, 23};
 const char* zone_names[num_zones]={"Far End", "Solar", "Hall", "Downstairs", "Upstairs"};
 int zone_pos[num_zones][4] = {{350, 60,190,190},
                               {350,250,190,140}, 
                               {350,390,190,200},
                               {350,590,270,180},
                               { 50,690,270,180}};
-OneWire oneWire(23); // OneWire GPIO pin
 DeviceAddress ds18b20[num_zones] = {{0x28, 0x23, 0x58, 0xC0, 0x32, 0x20, 0x01, 0x6D},
                                     {0x28, 0x7B, 0xB7, 0xE4, 0x32, 0x20, 0x01, 0x29},
                                     {0x28, 0x58, 0xBB, 0x12, 0x33, 0x20, 0x01, 0x34},
@@ -59,6 +59,7 @@ const char* valve_states[7] ={"closed", "opening", "open", "closing", "stuck ope
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
 unsigned long valve_timeout[num_zones];
 int valve[num_zones] = {0}; // valve status
+byte ds2482_chan[num_zones] = {0};
 int boiler[num_boilers] = {0}; // boiler state
 long zone[num_zones] = {0}; // bit field. 0 = 00:00 to 01:00 ... 23 = 23:00 to 00. 24 = manual-on, 25 = manual-off
 int zone_on; // bitfield
@@ -71,6 +72,7 @@ float temp[num_zones];
 int run_on_timer[num_boilers];
 byte counter[4] = {0}; // up/down arrow accelleration
 struct tm timeinfo;
+OneWire oneWire;
 DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
@@ -87,6 +89,7 @@ const long timeoutTime = 2000;
 
 void setup() {
   Serial.begin(115200);
+  sensors.begin();
   EEPROM.begin(512);
   byte connection_count = EEPROM.read(511);
   // Connect to Wi-Fi network with SSID and password
@@ -144,6 +147,20 @@ void setup() {
     pinMode(pump_out[i], OUTPUT);
     digitalWrite(pump_out[i], HIGH);
   }
+
+  // Find which DS2482 channel each DS18B20 sensor can be found on
+  for (byte c = 0; c < 8; c++){
+    oneWire.setChannel(c);
+    for (int i = 0; i < num_zones; i++){
+      if (sensors.isConnected(ds18b20[i])){
+        Serial.print("Sensor for zone ");
+        Serial.print(i);
+        Serial.print(" found on channel");
+        Serial.println(c);
+        ds2482_chan[i] = c;
+      }
+    }
+  }
 }
 
 bool temp_valid(int z) {
@@ -168,6 +185,7 @@ void loop(){
     getLocalTime(&timeinfo);
     sensors.requestTemperatures();
     for (z = 0; z < num_zones; z++){
+      oneWire.setChannel(ds2482_chan[z]);
       float demand_temp;
       if (units) {
         temp[z] = sensors.getTempF(ds18b20[z]);
