@@ -13,7 +13,8 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-#define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; client.println(buffer) ;
+char buffer[180];
+#define __P(f_, ...) snprintf (buffer, 180, (f_), ##__VA_ARGS__) ; client.println(buffer) ;
 //#define __P(f_, ...) snprintf (buffer, 150, (f_), ##__VA_ARGS__) ; Serial.println(buffer)
 
 // **************************CONFIGURATION************************************************
@@ -25,13 +26,16 @@ const char *TZstr = "GMT0BST,M3.3.0/1,M10.5.0";
 #define num_zones 5
 #define num_pumps 3
 #define num_boilers 1
+byte BLINK_LED = 2;
 float hyst = 0.5; // temperature hysteresis
 int units = 0; // Set to 1 for Fahrenheit
 // GPIO Pins
 int boiler_out[num_boilers] = {33};
 int zone_out[num_zones] = {25, 26, 27, 14, 19};
 int zone_in[num_zones] = {36, 39, 34, 35, 32};
-int pump_out[num_pumps] = {1, 3, 23};
+int pump_out[num_pumps] = {4, 5, 23};
+// spare_out[num_spare_outs] = {18, 12};
+// spare_in {2, 13, 16};
 const char* zone_names[num_zones]={"Far End", "Solar", "Hall", "Downstairs", "Upstairs"};
 int zone_pos[num_zones][4] = {{350, 60,190,190},
                               {350,250,190,140}, 
@@ -77,8 +81,6 @@ DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
 WiFiServer server(80);
-// Variable to store the HTTP request
-String header;
 
 // Current time
 unsigned long currentTime = millis();
@@ -86,6 +88,9 @@ unsigned long currentTime = millis();
 unsigned long previousTime = 0; 
 // Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 2000;
+
+int error_flag;
+bool blink;
 
 void setup() {
   Serial.begin(115200);
@@ -120,6 +125,7 @@ void setup() {
   Serial.println("WiFi connected.");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.printf("esp_idf_version %s\n", esp_get_idf_version());
   server.begin();
 
   configTime(0, 3600, ntpServer);
@@ -142,15 +148,17 @@ void setup() {
     pinMode(zone_out[i], OUTPUT);
     digitalWrite(zone_out[i], HIGH);
   }
-  for (int i = 0; i < num_zones; i++) pinMode(zone_in[i], INPUT);
+  for (int i = 0; i < num_zones; i++) pinMode(zone_in[i], INPUT_PULLUP);
   for (int i = 0; i < num_pumps; i++) {
     pinMode(pump_out[i], OUTPUT);
     digitalWrite(pump_out[i], HIGH);
   }
-
+  
   // Find which DS2482 channel each DS18B20 sensor can be found on
   for (byte c = 0; c < 8; c++){
     oneWire.setChannel(c);
+    Serial.print("Checking channel ");
+    Serial.println(c);
     for (int i = 0; i < num_zones; i++){
       if (sensors.isConnected(ds18b20[i])){
         Serial.print("Sensor for zone ");
@@ -161,6 +169,7 @@ void setup() {
       }
     }
   }
+  pinMode(BLINK_LED, OUTPUT);
 }
 
 bool temp_valid(int z) {
@@ -172,16 +181,18 @@ bool temp_valid(int z) {
   return 1;
 }
 
+bool do_status(){}
+  
+
 void loop(){
   int z = -1; // zone index
   int h = -1; // hour index
-  int error_flag;
-  struct tm timeinfo;
-  char buffer[200];
   char header[21] = {0}; int r = 0; // header buffer and index, ignore all but the first 20 chars
   WiFiClient client = server.available();   // Listen for incoming clients
   if (! client){ // do heating control
     delay (1000);
+    blink = ! blink;
+    digitalWrite(BLINK_LED, blink);
     getLocalTime(&timeinfo);
     sensors.requestTemperatures();
     for (z = 0; z < num_zones; z++){
@@ -207,23 +218,17 @@ void loop(){
         case 0: // closed
           if (temp[z] < demand_temp - hyst){
             digitalWrite(zone_out[z], LOW);
-            Serial.print("Turning on zone ");
-            Serial.println(z);
             valve[z] = 1;
             valve_timeout[z] = millis();
           }
           break;
         case 1: // valve opening
-          if (digitalRead(zone_in[z])) { // valve has opened
+          if (! digitalRead(zone_in[z])) { // valve has opened
             bitSet(zone_on, z);
             valve[z] = 2;
             break;
           }
           if (millis() - valve_timeout[z] > 60000) {
-            // TESTING ***************************************
-            valve[z] = 2;
-            break;
-            // TESTING ***************************************
             error_flag = 5;
             valve[z] = 5;
           }
@@ -234,12 +239,11 @@ void loop(){
             valve[z] = 3;
             valve_timeout[z] = millis();
             bitClear(zone_on, z);
-            Serial.print("Turning Off zone ");
-            Serial.println(z);
+            Serial.printf("Turning Off zone %d", z);
           }
           break;
         case 3: // valve closing
-          if (! digitalRead(zone_in[z])) { // valve has closed
+          if (digitalRead(zone_in[z])) { // valve has closed
             valve[z] = 0;
             break;
           }
@@ -248,7 +252,7 @@ void loop(){
             error_flag = 4;
           }
         case 4: // Stuck Open fault: We can still control temp, and it might close
-          if (! digitalRead(zone_in[z])) { // valve has finally closed
+          if (digitalRead(zone_in[z])) { // valve has finally closed
             bitSet(zone_on, z);
             valve[z] = 0;
             break;
@@ -297,8 +301,8 @@ void loop(){
           }
           break;
         case 2: // run-on timer
-          // check for timout _or_ re-activation
-          if (((millis() - run_on_timer[i]) > run_on_time) || (run_on && boiler_mask[i])){
+          // check for timeout _or_ re-activation
+          if (((millis() - run_on_timer[i]) > run_on_time) || (zone_on && boiler_mask[i])){
             bitClear(run_on, i);
             boiler[i] = 0;
             break;
@@ -337,7 +341,7 @@ void loop(){
           __P("Connection: close");
           __P("");
           // Programming Screen
-          if (z >= 0){
+          if (z >= 0 && z < num_zones){
               __P("<!DOCTYPE html>");
               __P("<head> </head>");
               __P("<html>");
@@ -364,8 +368,8 @@ void loop(){
               __P("<rect y=\"480\" x=\"130\" height=\"80\" width=\"80\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/>", on_colour);
               __P("<text y=\"520\" x=\"170\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"middle\" font-family=\"Times\"> %d.%1d </text>",
                     (int)(on_temp[z]/2), (int)(on_temp[z]*5)%10);
-              __P("<a xlink:href=\"on_plus_%02\"><path d=\"M 130 475 l 80 0 l -40 -30 z\" /></a>", z);
-              __P("<a xlink:href=\"on_minus_%02\"><path d=\"M 130 565 l 80 0 l -40  30 z\" /></a>", z);
+              __P("<a xlink:href=\"on_plus_%02d\"><path d=\"M 130 475 l 80 0 l -40 -30 z\" /></a>", z);
+              __P("<a xlink:href=\"on_minus_%02d\"><path d=\"M 130 565 l 80 0 l -40  30 z\" /></a>", z);
               // Set / display off temperature
               __P("<rect y=\"480\" x=\"290\" height=\"80\" width=\"80\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/>", off_colour);
               __P("<text y=\"520\" x=\"330\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"middle\" font-family=\"Times\"> %d.%1d </text>",
