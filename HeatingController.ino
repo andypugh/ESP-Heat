@@ -7,6 +7,7 @@
 // Load Wi-Fi library
 #include "credentials.h"
 #include <WiFi.h>
+#include <WebServer.h>
 #include "time.h"
 #include "EEPROM.h"
 // https://github.com/cybergibbons/DS2482_OneWire _NOT_ the standard library
@@ -80,7 +81,8 @@ OneWire oneWire;
 DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
-WiFiServer server(80);
+WebServer server(80);
+WiFiClient client;
 
 // Current time
 unsigned long currentTime = millis();
@@ -89,8 +91,7 @@ unsigned long previousTime = 0;
 // Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 2000;
 
-int error_flag;
-bool blink;
+int error_flag = 1; // 1 flash is just a heartbeat
 
 void setup() {
   Serial.begin(115200);
@@ -181,18 +182,31 @@ bool temp_valid(int z) {
   return 1;
 }
 
-bool do_status(){}
+// This function handles blink-codes and watches for a new web interface connection
+// returns a true if there is a connection to handle, NULL otherwise
+bool do_status(){
+  int i;
+  for (i = 0; i < 10; i++){
+    if (client = server.available()) return true;
+    if (i < error_flag) {
+      digitalWrite(BLINK_LED, HIGH);
+      delay(200);
+      digitalWrite(BLINK_LED, LOW);
+      delay(200);
+    } else {
+      digitalWrite(BLINK_LED, LOW);
+      delay(400);
+    }
+  }
+  return false;
+}
   
 
 void loop(){
   int z = -1; // zone index
   int h = -1; // hour index
   char header[21] = {0}; int r = 0; // header buffer and index, ignore all but the first 20 chars
-  WiFiClient client = server.available();   // Listen for incoming clients
-  if (! client){ // do heating control
-    delay (1000);
-    blink = ! blink;
-    digitalWrite(BLINK_LED, blink);
+  if (! do_status()){ // do heating control
     getLocalTime(&timeinfo);
     sensors.requestTemperatures();
     for (z = 0; z < num_zones; z++){
@@ -273,7 +287,8 @@ void loop(){
             digitalWrite(zone_out[z], HIGH);
             valve[z] = 0;
           }
-          
+          error_flag = 6;
+          break;
         default:
           error_flag = 10;
       }
@@ -436,7 +451,7 @@ void loop(){
             r = 0;
             // interrogate the URL
             if (sscanf(header, "GET /set_%d", &z)){
-              Serial.println("Programming Command");
+              // nothing to do, new value of z is enough
             } else if (sscanf(header, "GET /hour_%d_%d", &z, &h)){
               if (z < 0 || z > num_zones -1 || h < 0 || h > 23) break;
               zone[z] &= 0x00FFFFFF; // set to auto mode if user tries to program
@@ -445,48 +460,36 @@ void loop(){
               EEPROM.write(z * 8 + 2, (zone[z] & 0x0000FF00) >>  8);
               EEPROM.write(z * 8 + 3, (zone[z] & 0x000000FF));
               EEPROM.commit();
-              Serial.println(zone[z],BIN);
              } else if (sscanf(header, "GET /auto_%d_%d", &z, &h)){
               if (z < 0 || z > num_zones -1 || h < 0 || h > 2) break;
               zone[z] &= 0x00FFFFFF;
               zone[z] += (long)h * 0x1000000;
               EEPROM.write(z * 8 + 0, (zone[z] & 0xFF000000) >> 24);
               EEPROM.commit();
-              Serial.println(h, DEC);
-              Serial.println((long)h * 0x1000000, BIN);
-              Serial.println(zone[z],BIN);
             } else if (sscanf(header, "GET /on_plus_%2d", &z)){
               if (z < 0 || z > num_zones -1) break;
               counter[1] = counter[2] = counter[3] = 0;
               on_temp[z] += (counter[0]++ > 10) ? 10 : 1;
               EEPROM.write(z * 8 + 4, on_temp[z]);
               EEPROM.commit();
-              Serial.print("plus on ");
-              Serial.println(counter[0]);
             } else if (sscanf(header, "GET /on_minus_%2d", &z)){
               if (z < 0 || z > num_zones -1) break;
               counter[0] = counter[2] = counter[3] = 0;
               on_temp[z] -= (counter[1]++ > 10) ? 10 : 1;
               EEPROM.write(z * 8 + 4, on_temp[z]);
               EEPROM.commit();
-                            Serial.print("minus on ");
-              Serial.println(counter[1]);
             } else if (sscanf(header, "GET /off_plus_%2d", &z)){
               if (z < 0 || z > num_zones -1) break;
               counter[0] = counter[1] = counter[3] = 0;
               off_temp[z] += (counter[2]++ > 10) ? 10 : 1;
               EEPROM.write(z * 8 + 5, off_temp[z]);
               EEPROM.commit();
-                            Serial.print("plus off ");
-              Serial.println(counter[2]);
             } else if (sscanf(header, "GET /off_minus_%2d", &z)){
               if (z < 0 || z > num_zones -1) break;
               counter[0] = counter[1] = counter[2] = 0;
               off_temp[z] -= (counter[3]++ > 10) ? 10 : 1;
               EEPROM.write(z * 8 + 5, off_temp[z]);
               EEPROM.commit();
-              Serial.print("minus off ");
-              Serial.println(counter[3]);
             }
           }
         }
