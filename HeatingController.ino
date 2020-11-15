@@ -81,7 +81,7 @@ OneWire oneWire;
 DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
-WebServer server(80);
+WiFiServer server(80);
 WiFiClient client;
 
 // Current time
