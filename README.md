@@ -7,7 +7,10 @@ One zone per valve, and it is assumed that zone valves trip microswitches when o
 
 Branches: 
 no_master: Uses GPIO to read from the DS18B20 sensors
+
 master: using a DS2482 1-wire master adaptor for longer cable runs 
+
+WiFiServer: Initial version using wiFi server and parsing incoming URLs byte-by-byte
 
 ![Alt text](Screenshot.png?raw=true "Programming screen for one zone")
 
