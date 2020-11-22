@@ -13,62 +13,19 @@
 // https://github.com/cybergibbons/DS2482_OneWire _NOT_ the standard library
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include "config.h"
 
 char buffer[200];
 #define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; content += buffer ;
 //#define __P(f_, ...) snprintf (buffer, 150, (f_), ##__VA_ARGS__) ; Serial.println(buffer)
 
-// **************************CONFIGURATION************************************************
-
-const char* hostname = "heating";
-const char* ntpServer = "pool.ntp.org";
-const char *TZstr = "GMT0BST,M3.3.0/1,M10.5.0";
-// maximum num_zones is EEPROM.length() / 8
-#define num_zones 5
-#define num_pumps 3
-#define num_boilers 1
-byte BLINK_LED = 2;
-float hyst = 0.5; // temperature hysteresis
-int units = 0; // Set to 1 for Fahrenheit
-// GPIO Pins
-int boiler_out[num_boilers] = {33};
-int zone_out[num_zones] = {25, 26, 27, 14, 19};
-int zone_in[num_zones] = {36, 39, 34, 35, 32};
-int pump_out[num_pumps] = {4, 5, 23};
-// spare_out[num_spare_outs] = {18, 12};
-// spare_in {2, 13, 16};
-const char* zone_names[num_zones] = {"Far End", "Solar", "Hall", "Downstairs", "Upstairs"};
-int zone_pos[num_zones][4] = {{350, 60, 190, 190},
-  {350, 250, 190, 140},
-  {350, 390, 190, 200},
-  {350, 590, 270, 180},
-  { 50, 690, 270, 180}
-};
-DeviceAddress ds18b20[num_zones] = {{0x28, 0x23, 0x58, 0xC0, 0x32, 0x20, 0x01, 0x6D},
-  {0x28, 0x7B, 0xB7, 0xE4, 0x32, 0x20, 0x01, 0x29},
-  {0x28, 0x58, 0xBB, 0x12, 0x33, 0x20, 0x01, 0x34},
-  {0x28, 0xA0, 0x02, 0x8A, 0x32, 0x20, 0x01, 0x0D},
-  {0x28, 0x4E, 0x22, 0x41, 0x33, 0x20, 0x01, 0xC9}
-};
-//For each pump the pump mask is AND-ed with the active zone bitfield. Non-zero turns on the pump
-int pump_mask[num_pumps] = {0x01, 0x06, 0x18};
-//For each pump the pump mask is AND-ed with the boiler run-on bitfield. Non-zero turns on the pump
-int run_on_mask[num_pumps] = {0x0, 0x0, 0x1};
-//For each boiler the pump mask is AND-ed with the active zone bitfield. Non-zero turns on the pump
-int boiler_mask[num_boilers] = {0x1F};
-unsigned long  run_on_time = 120000; //milliseconds
-const char* off_colour = "#aaffaa";
-const char* on_colour = "#ffaaaa";
-
-// **************************/CONFIGURATION***********************************************
-
 const char* valve_states[7] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "temp sensor FAULT"};
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
 unsigned long valve_timeout[num_zones];
 int valve[num_zones] = {0}; // valve status
-byte ds2482_chan[num_zones] = {0};
+char ds2482_chan[num_zones] = {-1};
 int boiler[num_boilers] = {0}; // boiler state
-long zone[num_zones] = {0}; // bit field. 0 = 00:00 to 01:00 ... 23 = 23:00 to 00. 24 = manual-on, 25 = manual-off
+long zone[num_zones] = {0}; // bit field. 0 = 00:00 to 01:00 ... 23 = 23:00 to 00:00. 24 = manual-on, 25 = manual-off
 int zone_on; // bitfield
 int pump_on; // bitfield
 int boiler_on; // bit field
@@ -106,19 +63,16 @@ void setup() {
   Serial.print(" Connecting to ");
   Serial.println(ssid);
   WiFi.disconnect();
-  WiFi.setHostname(hostname);
+  WiFi.mode(WIFI_OFF);
+  delay(1000);
   WiFi.begin(ssid, password);
+  WiFi.setHostname(hostname);
+  WiFi.mode(WIFI_STA);
   while (WiFi.status() != WL_CONNECTED && connection_count < 6) {
-    int i;
-
-    delay(500);
+    delay(250);
+    WiFi.begin(ssid, password);
     Serial.print(".");
-    if (i++ > 30) {
-      Serial.println("Restarting");
-      EEPROM.write(511, connection_count + 1);
-      EEPROM.commit();
-      ESP.restart();
-    }
+    delay(250);
   }
   EEPROM.write(511, 0); EEPROM.commit();
 
@@ -197,7 +151,7 @@ bool temp_valid(int z) {
 void do_status() {
   int i;
   for (i = 0; i < 10; i++) {
-    if (WiFi.status() == WL_CONNECTED) server.handleClient();
+    server.handleClient();
     if (i < error_flag) {
       digitalWrite(BLINK_LED, HIGH);
       delay(200);
@@ -219,12 +173,14 @@ void loop() {
   getLocalTime(&timeinfo);
   sensors.requestTemperatures();
   for (z = 0; z < num_zones; z++) {
-    oneWire.setChannel(ds2482_chan[z]);
     float demand_temp;
-    if (units) {
-      temp[z] = sensors.getTempF(ds18b20[z]);
-    } else {
-      temp[z] = sensors.getTempC(ds18b20[z]);
+    if (ds2482_chan[z] >= 0){
+      oneWire.setChannel(ds2482_chan[z]);
+      if (units) {
+        temp[z] = sensors.getTempF(ds18b20[z]);
+      } else {
+        temp[z] = sensors.getTempC(ds18b20[z]);
+      }
     }
     if ( ! temp_valid(z)) {
       valve[z] = 6;
@@ -243,6 +199,7 @@ void loop() {
           digitalWrite(zone_out[z], LOW);
           valve[z] = 1;
           valve_timeout[z] = millis();
+          Serial.printf("Turning On zone %d\n", z);
         }
         break;
       case 1: // valve opening
@@ -262,7 +219,7 @@ void loop() {
           valve[z] = 3;
           valve_timeout[z] = millis();
           bitClear(zone_on, z);
-          Serial.printf("Turning Off zone %d", z);
+          Serial.printf("Turning Off zone %d\n", z);
         }
         break;
       case 3: // valve closing
