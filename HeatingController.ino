@@ -23,7 +23,7 @@ const char* valve_states[7] = {"closed", "opening", "open", "closing", "stuck op
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
 unsigned long valve_timeout[num_zones];
 int valve[num_zones] = {0}; // valve status
-char ds2482_chan[num_zones] = {-1};
+byte ds2482_chan[num_zones];
 int boiler[num_boilers] = {0}; // boiler state
 long zone[num_zones] = {0}; // bit field. 0 = 00:00 to 01:00 ... 23 = 23:00 to 00:00. 24 = manual-on, 25 = manual-off
 int zone_on; // bitfield
@@ -88,6 +88,7 @@ void setup() {
   server.on("/on_step", handle_OnStep);
   server.on("/off_step", handle_OffStep);
   server.on("/auto", handle_OnAuto);
+  server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
   server.onNotFound([]() {
     server.send(404, "text/plain", "FileNotFound");
   });
@@ -119,6 +120,10 @@ void setup() {
   }
 
   // Find which DS2482 channel each DS18B20 sensor can be found on
+  for (int i = 0; i < num_zones; i++) {
+    ds2482_chan[i] = 255;
+    temp[i] = -127;
+  }
   for (byte c = 0; c < 8; c++) {
     oneWire.setChannel(c);
     Serial.print("Checking channel ");
@@ -174,7 +179,8 @@ void loop() {
   sensors.requestTemperatures();
   for (z = 0; z < num_zones; z++) {
     float demand_temp;
-    if (ds2482_chan[z] >= 0){
+    bool off_flag = 0;
+    if (ds2482_chan[z] < 8){
       oneWire.setChannel(ds2482_chan[z]);
       if (units) {
         temp[z] = sensors.getTempF(ds18b20[z]);
@@ -189,6 +195,7 @@ void loop() {
       demand_temp = on_temp[z] / 2.0;
     } else {
       demand_temp = off_temp[z] / 2.0;
+      off_flag = true; // Used to reset valve-stuck-closed
     }
     /*************************************
           Valve control state machine
@@ -235,6 +242,7 @@ void loop() {
         if (digitalRead(zone_in[z])) { // valve has finally closed
           bitSet(zone_on, z);
           valve[z] = 0;
+          error_flag = 1;
           break;
         }
         if (temp[z] > demand_temp + hyst) {
@@ -245,15 +253,20 @@ void loop() {
         break;
       case 5: // stuck closed fault
         digitalWrite(zone_out[z], HIGH); // avoid overheating motor
-        // Just stick here?
+        if (off_flag) {
+          valve[z] = 0;
+          error_flag = 1;
+        }
         break;
       case 6: // Temperature sensor fault
         // allow it to fix itself
         if (temp_valid(z)) {
           digitalWrite(zone_out[z], HIGH);
           valve[z] = 0;
+          error_flag = 1;
+        } else {
+          error_flag = 6;
         }
-        error_flag = 6;
         break;
       default:
         error_flag = 10;
@@ -447,4 +460,14 @@ void handle_OffStep() {
   EEPROM.write(z * 8 + 5, off_temp[z]);
   EEPROM.commit();
   program(z);
+}
+
+void handle_UpdateTemp() {
+  int z = server.arg("zone").toInt();
+  int t = server.arg("temp").toFloat();
+  if (z < 0 || z > num_zones - 1) return;
+  temp[z] = t;
+  String content = "<!DOCTYPE html>";
+  __P("Zone %d set to temperature %d\n", z, t);
+  server.send(200, "text/html", content);
 }
