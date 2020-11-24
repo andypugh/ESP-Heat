@@ -8,6 +8,7 @@
 #include "credentials.h"
 #include <WiFi.h>
 #include <WebServer.h>
+#include "ESP32_MailClient.h"
 #include "time.h"
 #include "EEPROM.h"
 // https://github.com/cybergibbons/DS2482_OneWire _NOT_ the standard library
@@ -154,6 +155,7 @@ bool temp_valid(int z) {
 // This function handles blink-codes and watches for a new web interface connection
 // returns a true if there is a connection to handle, NULL otherwise
 void do_status() {
+  static int old_error;
   int i;
   for (i = 0; i < 10; i++) {
     server.handleClient();
@@ -167,6 +169,25 @@ void do_status() {
       delay(400);
     }
   }
+  if (old_error == error_flag || error_flag <= 1) return;
+
+  // send an email message about the error
+  if (error_email != "\0") {
+    SMTPData smtpData;
+    smtpData.setLogin(smtp_server, smtp_port, error_email,error_password);
+    smtpData.setSender("ESP32", error_email);
+    smtpData.addRecipient(error_recipient);
+    smtpData.setSubject("Slaithwaite heating fault detected");
+    String content = "Current status:\n\n";
+    for (int i = 0; i < num_boilers; i++) { __P("Boiler %d %s\n", i, boiler_states[boiler[i]]);}
+    __P("\n");
+    for (int i = 0; i < num_zones; i++) {__P("Valve %d %s\n", i, valve_states[valve[i]]);}
+    __P("\n");
+    for (int i = 0; i < num_pumps; i++) { __P("Pump %d %s\n", i, (zone_on & pump_mask[i])?"On":"Off");}
+    smtpData.setMessage(content, false);
+    MailClient.sendMail(smtpData);
+  }
+  old_error = error_flag;
 }
 
 
@@ -253,6 +274,7 @@ void loop() {
         break;
       case 5: // stuck closed fault
         digitalWrite(zone_out[z], HIGH); // avoid overheating motor
+        bitClear(zone_on, z); // turn off the pump
         if (off_flag) {
           valve[z] = 0;
           error_flag = 1;
