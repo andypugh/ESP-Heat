@@ -12,5 +12,12 @@ master: using a DS2482 1-wire master adaptor for longer cable runs
 
 WiFiServer: Initial version using wiFi server and parsing incoming URLs byte-by-byte
 
+Here is one of the programming screens
+
 ![Alt text](Screenshot.png?raw=true "Programming screen for one zone")
+
+And here is one iteration of the hardware installed in a consumer unit case with
+Neutrik connectors for the pumps and valves and CB connectors for the temperature sensors:
+
+![Alt text](IMG_5434.jpg?raw=true "Hardware")
 
