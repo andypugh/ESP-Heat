@@ -13,8 +13,9 @@ DS18B20 is a 1-Wire temperature sensor (http://www.maximintegrated.com/datasheet
 
 The DS2482-100 is a I2C->1-Wire bridge (http://www.maximintegrated.com/datasheet/index.mvp/id/4382), containly functionality that means it is better at driving long and complex networks. 
 
-Breakouts for the Raspberry Pi, which can be connected to Arduino, are available from Sheepwalk Electronics:
-http://www.sheepwalkelectronics.co.uk/product_info.php?cPath=22&products_id=30
+I used a DS2482-800 which additionally expands the bus to 8 separate channels, which allows for longer single-ended networks. 
+For simplicity, using this break-out board. 
+https://uk.rs-online.com/web/p/communication-wireless-development-tools/1360731/
 
 Here is one of the programming screens
 
