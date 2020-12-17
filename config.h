@@ -7,16 +7,15 @@ const char *TZstr = "GMT0BST,M3.3.0/1,M10.5.0";
 #define num_zones 5
 #define num_pumps 3
 #define num_boilers 1
-byte BLINK_LED = 2;
+byte BLINK_LED = 23;
 float hyst = 0.5; // temperature hysteresis
 int units = 0; // Set to 1 for Fahrenheit
 // GPIO Pins
 int boiler_out[num_boilers] = {33};
-int zone_out[num_zones] = {25, 26, 27, 14, 19};
-int zone_in[num_zones] = {36, 39, 34, 35, 32};
-int pump_out[num_pumps] = {4, 5, 23};
-// spare_out[num_spare_outs] = {18, 12};
-// spare_in {2, 13, 16};
+int zone_out[num_zones] = {25, 26, 27, 14, 19}; // and 16
+int zone_in[num_zones] = {36, 39, 34, 35, 32}; // and 13
+int pump_out[num_pumps] = {4, 5, 12}; // and 17, 18
+
 const char* zone_names[num_zones] = {"Far End", "Solar", "Hall", "Downstairs", "Upstairs"};
 int zone_pos[num_zones][4] =        {{350, 60, 190, 190},
                                     {350, 250, 190, 140},

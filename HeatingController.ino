@@ -37,7 +37,7 @@ float temp[num_zones];
 int run_on_timer[num_boilers];
 byte counter[4] = {0}; // up/down arrow accelleration
 struct tm timeinfo;
-OneWire oneWire;
+OneWire oneWire(0); //I2C device address 0
 DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
@@ -126,15 +126,19 @@ void setup() {
     temp[i] = -127;
   }
   for (byte c = 0; c < 8; c++) {
+    byte addr[8];
     oneWire.setChannel(c);
-    Serial.print("Checking channel ");
-    Serial.println(c);
+    sensors.begin();
+    Serial.printf("Checking channel %d\n", c);
+    int j = sensors.getDS18Count() - 1;
+    for (; j >= 0; j--){
+      sensors.getAddress(addr, j);
+      Serial.printf("    Found device addr 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",
+                     addr[0], addr[1],  addr[2], addr[3],  addr[4], addr[5],  addr[6], addr[7]);
+    }
     for (int i = 0; i < num_zones; i++) {
       if (sensors.isConnected(ds18b20[i])) {
-        Serial.print("Sensor for zone ");
-        Serial.print(i);
-        Serial.print(" found on channel");
-        Serial.println(c);
+        Serial.printf("    Sensor for zone %i found\n", i);
         ds2482_chan[i] = c;
       }
     }
@@ -175,13 +179,13 @@ void do_status() {
   if (error_email != "\0") {
     SMTPData smtpData;
     smtpData.setLogin(smtp_server, smtp_port, error_email,error_password);
-    smtpData.setSender("ESP32", error_email);
+    smtpData.setSender("Heating Controller", error_email);
     smtpData.addRecipient(error_recipient);
-    smtpData.setSubject("Slaithwaite heating fault detected");
-    String content = "Current status:\n\n";
+    smtpData.setSubject("Heating fault detected " + WiFi.localIP().toString());
+    String content = "Current status of controller:\n\n";
     for (int i = 0; i < num_boilers; i++) { __P("Boiler %d %s\n", i, boiler_states[boiler[i]]);}
     __P("\n");
-    for (int i = 0; i < num_zones; i++) {__P("Valve %d %s\n", i, valve_states[valve[i]]);}
+    for (int i = 0; i < num_zones; i++) { __P("Valve %d %s\n", i, valve_states[valve[i]]);}
     __P("\n");
     for (int i = 0; i < num_pumps; i++) { __P("Pump %d %s\n", i, (zone_on & pump_mask[i])?"On":"Off");}
     smtpData.setMessage(content, false);
@@ -197,12 +201,12 @@ void loop() {
   char header[21] = {0}; int r = 0; // header buffer and index, ignore all but the first 20 chars
   do_status(); // blink-codes and connection housekeeping
   getLocalTime(&timeinfo);
-  sensors.requestTemperatures();
   for (z = 0; z < num_zones; z++) {
     float demand_temp;
     bool off_flag = 0;
     if (ds2482_chan[z] < 8){
       oneWire.setChannel(ds2482_chan[z]);
+      sensors.requestTemperatures();
       if (units) {
         temp[z] = sensors.getTempF(ds18b20[z]);
       } else {
@@ -360,6 +364,10 @@ void handle_OnConnect() {
   for (int i = 0; i < num_zones; i++) {
     __P("<text y=\"%d\" x=\"80\" font-size=\"30\" dominant-baseline=\"middle\" text-anchor=\"left\" fill=\"0\" font-family=\"Times\" >Valve  %d %s</text>",
         35 * i + 130 + 30 * num_boilers, i, valve_states[valve[i]]);
+  }
+  for (int i = 0; i < num_pumps; i++) {
+    __P("<text y=\"%d\" x=\"475\" font-size=\"30\" dominant-baseline=\"middle\" text-anchor=\"left\" fill=\"0\" font-family=\"Times\" >Pump  %d %s</text>",
+        35 * i + 130 + 30 * num_boilers, i, digitalRead(pump_out[i])?"Off":"On");
   }
   for (int i = 0; i < num_zones; i++) {
     __P("<a xlink:href=\"set?zone=%d\"><rect y=\"%d\" x=\"%d\" height=\"%d\" width=\"%d\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/></a>",
