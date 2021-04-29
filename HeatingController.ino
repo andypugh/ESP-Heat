@@ -69,11 +69,15 @@ void setup() {
   WiFi.begin(ssid, password);
   WiFi.setHostname(hostname);
   WiFi.mode(WIFI_STA);
-  while (WiFi.status() != WL_CONNECTED && connection_count < 6) {
+  pinMode(BLINK_LED, OUTPUT);
+  while (WiFi.status() != WL_CONNECTED && connection_count < 60) {
+    digitalWrite(BLINK_LED, HIGH);
     delay(250);
     WiFi.begin(ssid, password);
     Serial.print(".");
+    digitalWrite(BLINK_LED, LOW);
     delay(250);
+    connection_count++;
   }
   EEPROM.write(511, 0); EEPROM.commit();
 
@@ -143,7 +147,6 @@ void setup() {
       }
     }
   }
-  pinMode(BLINK_LED, OUTPUT);
   server.begin();
 }
 
@@ -161,8 +164,18 @@ bool temp_valid(int z) {
 void do_status() {
   static int old_error;
   int i;
+  static int c_counter;
+  if (WiFi.status() != WL_CONNECTED){
+    error_flag = 2;
+    c_counter +=1;
+    if (c_counter > 30){ // wait 5 mins between connection attempts
+      Serial.println("Reconnection attempt");
+      WiFi.begin(ssid, password);
+      c_counter = 0;
+    }
+  }
   for (i = 0; i < 10; i++) {
-    server.handleClient();
+    if (WiFi.status() == WL_CONNECTED) server.handleClient();
     if (i < error_flag) {
       digitalWrite(BLINK_LED, HIGH);
       delay(200);
@@ -173,16 +186,20 @@ void do_status() {
       delay(400);
     }
   }
-  if (old_error == error_flag || error_flag <= 1) return;
 
   // send an email message about the error
+    
+  if (old_error == error_flag || error_flag <= 1) return; // don't send same email twice
+  if (WiFi.status() != WL_CONNECTED) return; // don't attempt to send an email with no connection
+  
   if (error_email != "\0") {
     SMTPData smtpData;
     smtpData.setLogin(smtp_server, smtp_port, error_email,error_password);
     smtpData.setSender("Heating Controller", error_email);
     smtpData.addRecipient(error_recipient);
-    smtpData.setSubject("Heating fault detected " + WiFi.localIP().toString());
+    smtpData.setSubject("Heating fault code detected " + WiFi.localIP().toString());
     String content = "Current status of controller:\n\n";
+    __P("Error code %i\n\n", error_flag);
     for (int i = 0; i < num_boilers; i++) { __P("Boiler %d %s\n", i, boiler_states[boiler[i]]);}
     __P("\n");
     for (int i = 0; i < num_zones; i++) { __P("Valve %d %s\n", i, valve_states[valve[i]]);}
@@ -191,6 +208,7 @@ void do_status() {
     smtpData.setMessage(content, false);
     MailClient.sendMail(smtpData);
   }
+  if (error_flag == 2) error_flag = 1; // reconnected
   old_error = error_flag;
 }
 
