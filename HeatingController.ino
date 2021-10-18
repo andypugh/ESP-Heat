@@ -21,6 +21,7 @@ char buffer[200];
 //#define __P(f_, ...) snprintf (buffer, 150, (f_), ##__VA_ARGS__) ; Serial.println(buffer)
 
 const char* valve_states[7] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "temp sensor FAULT"};
+char* ext_ip[16];
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
 unsigned long valve_timeout[num_zones];
 int valve[num_zones] = {0}; // valve status
@@ -50,7 +51,7 @@ unsigned long previousTime = 0;
 // Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 2000;
 
-int error_flag = 1; // 1 flash is just a heartbeat
+int error_flag = 2; // 1 flash is just a heartbeat. use 2 to send reboot email
 
 void setup() {
   Serial.begin(115200);
@@ -66,15 +67,16 @@ void setup() {
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
   delay(1000);
-  WiFi.begin(ssid, password);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
   WiFi.setHostname(hostname);
+  WiFi.begin(ssid, password);
   WiFi.mode(WIFI_STA);
   pinMode(BLINK_LED, OUTPUT);
-  while (WiFi.status() != WL_CONNECTED && connection_count < 60) {
+  while (WiFi.waitForConnectResult() != WL_CONNECTED && connection_count < 60) {
     digitalWrite(BLINK_LED, HIGH);
     delay(250);
     WiFi.begin(ssid, password);
-    Serial.print(".");
+    Serial.print(WiFi.status());
     digitalWrite(BLINK_LED, LOW);
     delay(250);
     connection_count++;
@@ -84,8 +86,10 @@ void setup() {
   // Print local IP address and start web server
   Serial.println("");
   Serial.println("WiFi connected.");
-  Serial.println("IP address: ");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.print("MAC: ");
+  Serial.println(WiFi.macAddress());
   Serial.printf("esp_idf_version %s\n", esp_get_idf_version());
   server.on("/", handle_OnConnect);
   server.on("/set", handle_OnSet);
@@ -94,10 +98,11 @@ void setup() {
   server.on("/off_step", handle_OffStep);
   server.on("/auto", handle_OnAuto);
   server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
+  server.on("/reset", handle_Reset); // external reset
   server.onNotFound([]() {
     server.send(404, "text/plain", "FileNotFound");
   });
-
+ 
   configTime(0, 3600, ntpServer);
   setenv ("TZ", TZstr, 1);
   tzset ();   // save the TZ variable
@@ -147,6 +152,7 @@ void setup() {
       }
     }
   }
+
   server.begin();
 }
 
@@ -199,7 +205,15 @@ void do_status() {
     smtpData.addRecipient(error_recipient);
     smtpData.setSubject("Heating fault code detected " + WiFi.localIP().toString());
     String content = "Current status of controller:\n\n";
-    __P("Error code %i\n\n", error_flag);
+    
+    HTTPClient http;
+    http.begin("https://api.ipify.org/?format=text");
+    int httpCode = http.GET();
+    __P("External IP = http://");
+    content += http.getString();
+    http.end();
+
+    __P("\n\nError code %i\n\n", error_flag);
     for (int i = 0; i < num_boilers; i++) { __P("Boiler %d %s\n", i, boiler_states[boiler[i]]);}
     __P("\n");
     for (int i = 0; i < num_zones; i++) { __P("Valve %d %s\n", i, valve_states[valve[i]]);}
@@ -518,4 +532,8 @@ void handle_UpdateTemp() {
   String content = "<!DOCTYPE html>";
   __P("Zone %d set to temperature %d\n", z, t);
   server.send(200, "text/html", content);
+}
+
+void handle_Reset(){
+  ESP.restart();
 }
