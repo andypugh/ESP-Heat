@@ -18,7 +18,7 @@
 
 char buffer[200];
 #define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; content += buffer ;
-//#define __P(f_, ...) snprintf (buffer, 150, (f_), ##__VA_ARGS__) ; Serial.println(buffer)
+//#define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; Serial.println(buffer);
 
 const char* valve_states[7] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "temp sensor FAULT"};
 char* ext_ip[16];
@@ -98,6 +98,8 @@ void setup() {
   server.on("/off_step", handle_OffStep);
   server.on("/auto", handle_OnAuto);
   server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
+  server.on("/settings", handle_Settings);
+  server.on("/newsettings", handle_newSettings);
   server.on("/reset", handle_Reset); // external reset
   server.onNotFound([]() {
     server.send(404, "text/plain", "FileNotFound");
@@ -134,6 +136,7 @@ void setup() {
     ds2482_chan[i] = 255;
     temp[i] = -127;
   }
+  /*
   for (byte c = 0; c < 8; c++) {
     byte addr[8];
     oneWire.setChannel(c);
@@ -152,6 +155,10 @@ void setup() {
       }
     }
   }
+   */
+//*************** DUMMY DATA ******************
+
+//*********************************************
 
   server.begin();
 }
@@ -383,40 +390,79 @@ void handle_OnConnect() {
   strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo);
   Serial.println("New Connection");
   String content = "<!DOCTYPE html>";
-  __P("<head><meta http-equiv=\"refresh\" content=\"60\"></head>");
+  __P("<head><meta http-equiv='refresh' content='60'></head>");
   __P("<html>");
-  __P("<link rel=\"icon\" href=\"data:,\">");
+  __P("<link rel='icon' href='data:,'>");
   __P("<body>");
-  __P("<svg svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\" width=\"297mm\" height=\"210mm\">");
-  __P("<text y=\"70\" x=\"60\" font-size=\"40\" fill=\"#ao5a2c\" font-family=\"Times\" > %s </text>", timeStr);
+  __P("<svg svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' version='1.1' width='297mm' height='210mm'>");
+  __P("<text y='70' x='60' font-size='40' fill='#ao5a2c' font-family='Times' > %s </text>", timeStr);
   for (int i = 0; i < num_boilers; i++) {
-    __P("<text y=\"%d\" x=\"80\" font-size=\"30\" dominant-baseline=\"middle\" text-anchor=\"left\" fill=\"0\" font-family=\"Times\" >Boiler %d %s</text>",
+    __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Boiler %d %s</text>",
         35 * i + 110, i, boiler_states[boiler[i]]);
   }
   for (int i = 0; i < num_zones; i++) {
-    __P("<text y=\"%d\" x=\"80\" font-size=\"30\" dominant-baseline=\"middle\" text-anchor=\"left\" fill=\"0\" font-family=\"Times\" >Valve  %d %s</text>",
+    __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Valve  %d %s</text>",
         35 * i + 130 + 30 * num_boilers, i, valve_states[valve[i]]);
   }
   for (int i = 0; i < num_pumps; i++) {
-    __P("<text y=\"%d\" x=\"475\" font-size=\"30\" dominant-baseline=\"middle\" text-anchor=\"left\" fill=\"0\" font-family=\"Times\" >Pump  %d %s</text>",
+    __P("<text y='%d' x='475' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Pump  %d %s</text>",
         35 * i + 130 + 30 * num_boilers, i, digitalRead(pump_out[i])?"Off":"On");
   }
   for (int i = 0; i < num_zones; i++) {
-    __P("<a xlink:href=\"set?zone=%d\"><rect y=\"%d\" x=\"%d\" height=\"%d\" width=\"%d\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/></a>",
+    __P("<a xlink:href='set?zone=%d'><rect y='%d' x='%d' height='%d' width='%d' style='fill:%s;stroke:#000000;stroke-width:3'/></a>",
         i, zone_pos[i][0], zone_pos[i][1], zone_pos[i][2], zone_pos[i][3], bitRead(zone_on, i) ? on_colour : off_colour);
-    __P("<text y=\"%d\" x=\"%d\" font-size=\"20\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"0\" font-family=\"Times\" >%s</text>",
+    __P("<text y='%d' x='%d' font-size='20' dominant-baseline='middle' text-anchor='middle' fill='0' font-family='Times' >%s</text>",
         zone_pos[i][0] + zone_pos[i][2] - 20,
         zone_pos[i][1] + zone_pos[i][3] / 2,
         zone_names[i]);
-    __P("<text y=\"%d\" x=\"%d\" font-size=\"40\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"0\" font-family=\"Times\" >%d.%1d%s</text>",
+    __P("<text y='%d' x='%d' font-size='40' dominant-baseline='middle' text-anchor='middle' fill='0' font-family='Times' >%d.%1d%s</text>",
         zone_pos[i][0] + 60,
         zone_pos[i][1] + zone_pos[i][3] / 2,
         (int)temp[i], (int)(temp[i] * 10) % 10,
         units ? "&#8457" : "&#8451");
   }
+  __P("<a xlink:href='settings'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Setup</text></a>");
   __P("</svg>");
   __P("</body></html>");
   server.send(200, "text/html", content);
+}
+
+void handle_Settings() {
+  String content = "<!DOCTYPE html>";
+  __P("<head></head>");
+  __P("<html>");
+  __P("<h1>Settings</h1>");
+  __P("<form action='newsettings'>");
+  __P("<table>");
+  __P("<tr height='20px'>");
+  __P("<th></th>")
+  for (int i = 0; i < num_zones; i++){
+     __P("<th>Zone %i</th>", i);
+  }
+  __P("</tr>");
+  __P("<tr height='20px'>");
+  __P("<td>Zone Name</td>");
+  for (int i = 0; i < num_zones; i++){
+    __P("<th contenteditable=true><input type='text' id='a' name=zone_name[%i] value='%s'></th>", i, zone_names[i]);
+  }
+  __P("</tr>")
+  for (int j = 0; j < num_boilers; j++){
+    __P("<tr height='20px'>")
+    __P("<td>Boiler %i<td>", j);
+    for (int i = 0; i < num_zones; i++){
+      __P("<td contenteditable=true><input type='checkbox' name=boiler%i value=%i %s></td>", j, 1 << i, (boiler_mask[j] & 1 << i) ? "checked" : "")
+    } 
+    __P("</tr>");
+  }
+  __P("</table>");
+  __P("<input type='submit' value='Submit'>");
+  __P("</form>");
+  __P("</html>");
+  server.send(200, "text/html", content);
+}
+
+void handle_newSettings(){
+  Serial.println(server.arg("zone_name[0]"));
 }
 
 void handle_OnSet() {
@@ -424,58 +470,59 @@ void handle_OnSet() {
   Serial.printf("Setting Screen: setting zone %d\n", z);
   program(z);
 }
+
 // Programming Screen
 void program(int z) {
   if (z >= 0 && z < num_zones) {
     String content = "<!DOCTYPE html>";
     __P("<head> </head>");
     __P("<html>");
-    __P("<link rel=\"icon\" href=\"data:,\">");
+    __P("<link rel='icon' href='data:,'>");
     __P("<body>");
-    __P("<svg svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\" width=\"297mm\" height=\"210mm\">");
+    __P("<svg svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' version='1.1' width='297mm' height='210mm'>");
     // Header
-    __P("<text y=\"100\" x=\"60\" font-size=\"30\" fill=\"0\" font-family=\"Times\" >%s</text>", zone_names[z]);
+    __P("<text y='100' x='60' font-size='30' fill='0' font-family='Times' >%s</text>", zone_names[z]);
     // Setting clock faces
     for (int h = 0; h < 24; h++) {
       int r = 100;
-      __P("<a xlink:href=\"hour?zone=%02d&h=%02d\"><path d=\"M 0 0 L %d %d A %d %d 0 0 1 %d %d L 0 0\" style=\"fill:%s;stroke:#000000;stroke-opacity:1\" transform=\"translate(%d,300)\" /></a>",
+      __P("<a xlink:href='hour?zone=%02d&h=%02d'><path d='M 0 0 L %d %d A %d %d 0 0 1 %d %d L 0 0' style='fill:%s;stroke:#000000;stroke-opacity:1' transform='translate(%d,300)' /></a>",
           z, h,
           (int)(r * sin(0.5236 * h)), (int)(-r * cos(0.5236 * h)),
           r, r, (int)(r * sin(0.5236 * (h + 1))), (int)(-r * cos(0.5236 * (h + 1))),
           (zone[z] & (1 << 24 | 1 << h) && !(zone[z] & 1 << 25)) ? on_colour : off_colour,
           (h < 12) ? 200 : 500);
-      __P("<text x=\"%d\" y=\"%d\" font-size=\"15\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"middle\" font-family=\"Times\" transform=\"translate(%d,300)\"> %02d </text>",
+      __P("<text x='%d' y='%d' font-size='15' fill='#000000' dominant-baseline='middle' text-anchor='middle' font-family='Times' transform='translate(%d,300)'> %02d </text>",
           (int)((r + 20) * sin(0.5236 * h)), (int)(-(r + 20) * cos(0.5236 * h)),
           (h < 12) ? 200 : 500,
           h);
     }
     // Set / display on temperature
-    __P("<rect y=\"480\" x=\"130\" height=\"80\" width=\"80\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/>", on_colour);
-    __P("<text y=\"520\" x=\"170\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"middle\" font-family=\"Times\"> %d.%1d </text>",
+    __P("<rect y='480' x='130' height='80' width='80' style='fill:%s;stroke:#000000;stroke-width:3'/>", on_colour);
+    __P("<text y='520' x='170' font-size='30' fill='#000000' dominant-baseline='middle' text-anchor='middle' font-family='Times'> %d.%1d </text>",
         (int)(on_temp[z] / 2), (int)(on_temp[z] * 5) % 10);
-    __P("<a xlink:href=\"on_step?zone=%02d&d=10\"> <path d=\"M 129 475 l 54 0 l -27 -25 z\" /></a>", z);
-    __P("<a xlink:href=\"on_step?zone=%02d&d=-10\"><path d=\"M 129 565 l 54 0 l -27  25 z\" /></a>", z);
-    __P("<a xlink:href=\"on_step?zone=%02d&d=1\">  <path d=\"M 184 475 l 27 0 l -14 -13 z\" /></a>", z);
-    __P("<a xlink:href=\"on_step?zone=%02d&d=-1\"> <path d=\"M 184 565 l 27 0 l -14  13 z\" /></a>", z);
+    __P("<a xlink:href='on_step?zone=%02d&d=10'> <path d='M 129 475 l 54 0 l -27 -25 z' /></a>", z);
+    __P("<a xlink:href='on_step?zone=%02d&d=-10'><path d='M 129 565 l 54 0 l -27  25 z' /></a>", z);
+    __P("<a xlink:href='on_step?zone=%02d&d=1'>  <path d='M 184 475 l 27 0 l -14 -13 z' /></a>", z);
+    __P("<a xlink:href='on_step?zone=%02d&d=-1'> <path d='M 184 565 l 27 0 l -14  13 z' /></a>", z);
     // Set / display off temperature
-    __P("<rect y=\"480\" x=\"290\" height=\"80\" width=\"80\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/>", off_colour);
-    __P("<text y=\"520\" x=\"330\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"middle\" font-family=\"Times\"> %d.%1d </text>",
+    __P("<rect y='480' x='290' height='80' width='80' style='fill:%s;stroke:#000000;stroke-width:3'/>", off_colour);
+    __P("<text y='520' x='330' font-size='30' fill='#000000' dominant-baseline='middle' text-anchor='middle' font-family='Times'> %d.%1d </text>",
         (int)(off_temp[z] / 2), (int)(off_temp[z] * 5) % 10);
-    __P("<a xlink:href=\"off_step?zone=%02d&d=10\"> <path d=\"M 289 475 l 54 0 l -27 -25 z\" /></a>", z);
-    __P("<a xlink:href=\"off_step?zone=%02d&d=-10\"><path d=\"M 289 565 l 54 0 l -27  25 z\" /></a>", z);
-    __P("<a xlink:href=\"off_step?zone=%02d&d=1\">  <path d=\"M 344 475 l 27 0 l -14 -13 z\" /></a>", z);
-    __P("<a xlink:href=\"off_step?zone=%02d&d=-1\"> <path d=\"M 344 565 l 27 0 l -14  13 z\" /></a>", z);
+    __P("<a xlink:href='off_step?zone=%02d&d=10'> <path d='M 289 475 l 54 0 l -27 -25 z' /></a>", z);
+    __P("<a xlink:href='off_step?zone=%02d&d=-10'><path d='M 289 565 l 54 0 l -27  25 z' /></a>", z);
+    __P("<a xlink:href='off_step?zone=%02d&d=1'>  <path d='M 344 475 l 27 0 l -14 -13 z' /></a>", z);
+    __P("<a xlink:href='off_step?zone=%02d&d=-1'> <path d='M 344 565 l 27 0 l -14  13 z' /></a>", z);
     // AUTO Button
-    __P("<a xlink:href=\"auto?zone=%d&a=0\"><rect y=\"460\" x=\"460\" height=\"25\" width=\"25\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/></a>", z, (zone[z] & 0x3000000) ? "#FFFFFF" : "#FF0000");
-    __P("<text y=\"472\" x=\"500\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"left\" font-family=\"Times\"> AUTO </text>");
+    __P("<a xlink:href='auto?zone=%d&a=0'><rect y='460' x='460' height='25' width='25' style='fill:%s;stroke:#000000;stroke-width:3'/></a>", z, (zone[z] & 0x3000000) ? "#FFFFFF" : "#FF0000");
+    __P("<text y='472' x='500' font-size='30' fill='#000000' dominant-baseline='middle' text-anchor='left' font-family='Times'> AUTO </text>");
     // Manual ON button
-    __P("<a xlink:href=\"auto?zone=%d&a=1\"><rect y=\"500\" x=\"460\" height=\"25\" width=\"25\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/></a>", z,  (zone[z] & 0x1000000) ? "#FF0000" : "#FFFFFF");
-    __P("<text y=\"512\" x=\"500\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"left\" font-family=\"Times\"> Manual ON </text>");
+    __P("<a xlink:href='auto?zone=%d&a=1'><rect y='500' x='460' height='25' width='25' style='fill:%s;stroke:#000000;stroke-width:3'/></a>", z,  (zone[z] & 0x1000000) ? "#FF0000" : "#FFFFFF");
+    __P("<text y='512' x='500' font-size='30' fill='#000000' dominant-baseline='middle' text-anchor='left' font-family='Times'> Manual ON </text>");
     // Manual OFF button
-    __P("<a xlink:href=\"auto?zone=%d&a=2\"><rect y=\"540\" x=\"460\" height=\"25\" width=\"25\" style=\"fill:%s;stroke:#000000;stroke-width:3\"/></a>", z,  (zone[z] & 0x2000000) ? "#FF0000" : "#FFFFFF");
-    __P("<text y=\"562\" x=\"500\" font-size=\"30\" fill=\"#000000\" dominant-baseline=\"middle\" text-anchor=\"left\" font-family=\"Times\"> Manual OFF </text>");
+    __P("<a xlink:href='auto?zone=%d&a=2'><rect y='540' x='460' height='25' width='25' style='fill:%s;stroke:#000000;stroke-width:3'/></a>", z,  (zone[z] & 0x2000000) ? "#FF0000" : "#FFFFFF");
+    __P("<text y='562' x='500' font-size='30' fill='#000000' dominant-baseline='middle' text-anchor='left' font-family='Times'> Manual OFF </text>");
     // Back link
-    __P("<a xlink:href=\"../\"><text y=\"650\" x=\"60\" font-size=\"20\" fill=\"#0000FF\" font-family=\"Times\" >Back to Main Screen</text></a>");
+    __P("<a xlink:href='../'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Back to Main Screen</text></a>");
     __P("</svg>");
     __P("</body></html>");
     server.send(200, "text/html", content);
