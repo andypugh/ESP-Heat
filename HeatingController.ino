@@ -12,6 +12,7 @@
 #include "time.h"
 #include "EEPROM.h"
 // https://github.com/cybergibbons/DS2482_OneWire _NOT_ the standard library
+// If using the DS2482. Otherwise use the standard OneWire lib
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include "config.h"
@@ -124,7 +125,7 @@ void setup() {
     Serial.printf("Checking channel %d\n", c);
     for (int j = sensors.getDS18Count() - 1; j >= 0; j--){
       sensors.getAddress(all_sensors[num_sensors].address, j);
-      byte *a = all_sensors[num_sensors].address
+      byte *a = all_sensors[num_sensors].address;
       Serial.printf("Found device addr %02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x\n",
                      a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7]);
       all_sensors[num_sensors].channel = c;
@@ -134,7 +135,7 @@ void setup() {
       zones[z].temp=-127;
       if (sensors.isConnected(zones[z].sensor.address) && zones[z].sensor.channel >= 0) {
         Serial.printf("    Sensor for zone %i found\n", z);
-        zones[z].sensor.channel = c
+        zones[z].sensor.channel = c;
       }
     }
   }
@@ -185,11 +186,13 @@ void loop() {
   for (z = 0; z < num_zones; z++) {
     float demand_temp;
     bool off_flag = 0;
+
 #ifdef USE_DS2482
-    if (zone_sensor[z].channel <= 7 && zone_sensor[z].channel >=0 ){
-      oneWire.setChannel(zone_sensor[z].channel);
+    if (zones[z].sensor.channel <= 7 && zones[z].sensor.channel >=0 ){
+      oneWire.setChannel(zones[z].sensor.channel);
     }
 #endif
+
     sensors.requestTemperatures();
     if (units) {
       zones[z].temp = sensors.getTempF(zones[z].sensor.address);
