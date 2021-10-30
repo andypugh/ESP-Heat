@@ -20,8 +20,12 @@
 #define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; content += buffer ;
 //#define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; Serial.println(buffer);
 
-//OneWire oneWire(0); //I2C device address 0
+#ifdef USE_DS2482
+OneWire oneWire(0); //I2C device address 0
+#else
 OneWire oneWire(23); //Bitbanged device, pin 23
+#endif
+
 DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
@@ -75,10 +79,10 @@ void setup() {
   server.on("/auto", handle_OnAuto);
   server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
   server.on("/settings", handle_Settings);
-  server.on("/newsettings", handle_newSettings);
+  server.on("/newsettings", handle_newsettings);
   server.on("/reset", handle_Reset); // external reset
   server.onNotFound([]() {
-    server.send(404, "text/plain", "FileNotFound");
+     server.send(404, "text/plain", "FileNotFound");
   });
  
   configTime(0, 3600, ntpServer);
@@ -109,22 +113,22 @@ void setup() {
 
   // Find which DS2482 channel each DS18B20 sensor can be found on
 
-  Serial.println("Searching for DS18B20 Sensors");
   num_sensors = 0;
   
 #ifdef USE_DS2482
 
+  Serial.println("Searching for DS18B20 Sensors on DS2482");
   for (byte c = 0; c < 8; c++) {
-    DeviceAddress addr[8];
     oneWire.setChannel(c);
     sensors.begin();
     Serial.printf("Checking channel %d\n", c);
     for (int j = sensors.getDS18Count() - 1; j >= 0; j--){
-      sensors.getAddress(addr, j);
-      Serial.printf("    Found device addr %02X.%02X.%02X.%02X.%02X.%02X.%02X.%02X\n",
-                     addr[0], addr[1],  addr[2], addr[3],  addr[4], addr[5],  addr[6], addr[7]);
-      memcpy(addr, all_sensors[num_sensors].address, sizeof(addr));
+      sensors.getAddress(all_sensors[num_sensors].address, j);
+      byte *a = all_sensors[num_sensors].address
+      Serial.printf("Found device addr %02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x\n",
+                     a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7]);
       all_sensors[num_sensors].channel = c;
+      num_sensors = min(max_sensors, ++num_sensors);
     }
     for (int z = 0; z < num_zones; z++) {
       zones[z].temp=-127;
@@ -137,12 +141,18 @@ void setup() {
   
 #else
 
+  Serial.println("Searching for DS18B20 Sensors");
   DeviceAddress addr;
+  while (! oneWire.search(addr)){
+    oneWire.reset();
+    delay(250);
+  }
   oneWire.reset_search();
-  while (oneWire.search(addr)){
-    Serial.printf("    Found device addr %02X.%02X.%02X.%02X.%02X.%02X.%02X.%02X\n",
-                     addr[0], addr[1],  addr[2], addr[3],  addr[4], addr[5],  addr[6], addr[7]);
-    memcpy(addr, all_sensors[num_sensors].address, sizeof(addr));
+  while (oneWire.search(all_sensors[num_sensors].address)){
+    byte *a = all_sensors[num_sensors].address;
+    Serial.printf("Found device addr %02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x\n",
+                   a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7]);
+    num_sensors = min(max_sensors, ++num_sensors);
   }
   for (int z = 0; z < num_zones; z++) {
     zones[z].temp=-127;
@@ -152,6 +162,7 @@ void setup() {
   }
 
 #endif
+  Serial.printf("Found a total of %i sensors\n", num_sensors);
 
   server.begin();
 }
