@@ -58,3 +58,20 @@ void do_status() {
   if (error_flag == 2) error_flag = 1; // reconnected
   old_error = error_flag;
 }
+
+double get_temp(DS18B20 s){
+  
+#ifdef USE_DS2482
+    if (s.channel <= 7 && s.channel >=0 ){
+      oneWire.setChannel(s.channel);
+    }
+#endif
+
+    sensors.requestTemperatures();
+    
+    if (units) {
+      return sensors.getTempF(s.address);
+    } else {
+      return sensors.getTempC(s.address);
+    }
+}

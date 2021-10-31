@@ -1,6 +1,8 @@
 struct DS18B20 {
   char channel = -1; // DS482 channel number -1 indicates temp over IP.
   DeviceAddress address; // DS18B20 ROM address
+  char str_address[17];
+  char dot_address[25];
 };
 
 struct zone {
@@ -30,6 +32,10 @@ struct boiler {
   int mask;
   int out_pin;
   unsigned long run_on_timer;
+  DS18B20 f_sensor;
+  DS18B20 r_sensor;
+  float f_temp;
+  float r_temp;
 };
 
 zone zones[max_zones];

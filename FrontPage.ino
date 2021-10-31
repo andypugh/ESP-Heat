@@ -11,8 +11,10 @@ void handle_OnConnect() {
   __P("<svg svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' version='1.1' width='297mm' height='210mm'>");
   __P("<text y='70' x='60' font-size='40' fill='#ao5a2c' font-family='Times' > %s </text>", timeStr);
   for (int i = 0; i < num_boilers; i++) {
-    __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Boiler %d %s</text>",
-        35 * i + 110, i, boiler_states[boilers[i].state]);
+    __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Boiler %d %s Flow:%d.%1d%s Ret:%d.%1d%s</text>",
+        35 * i + 110, i, boiler_states[boilers[i].state],
+        (int)boilers[i].f_temp, (int)(boilers[i].f_temp * 10) % 10, units ? "&#8457" : "&#8451",
+        (int)boilers[i].r_temp, (int)(boilers[i].r_temp * 10) % 10, units ? "&#8457" : "&#8451");
   }
   for (int i = 0; i < num_zones; i++) {
     __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Valve  %d %s</text>",

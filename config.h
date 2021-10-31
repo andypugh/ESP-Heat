@@ -3,7 +3,9 @@
 const char* hostname = "heating";
 const char* ntpServer = "pool.ntp.org";
 const char *TZstr = "GMT0BST,M3.3.0/1,M10.5.0";
-// maximum num_zones is EEPROM.length() / 8
+// maximum num_zones is EEPROM.BASE() / 8
+
+// read_EEPROM() assumes single digit 
 #define max_zones 8
 #define max_pumps 8
 #define max_boilers 4

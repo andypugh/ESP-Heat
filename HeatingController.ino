@@ -126,8 +126,11 @@ void setup() {
     for (int j = sensors.getDS18Count() - 1; j >= 0; j--){
       sensors.getAddress(all_sensors[num_sensors].address, j);
       byte *a = all_sensors[num_sensors].address;
-      Serial.printf("Found device addr %02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x\n",
-                     a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7]);
+      sprintf(all_sensors[num_sensors].str_address,"%02X%02X%02X%02X%02X%02X%02X%02X", 
+          a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+      sprintf(all_sensors[num_sensors].dot_address,"%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x", 
+          a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+      Serial.printf("Found device addr %s\n", all_sensors[num_sensors].dot_address);
       all_sensors[num_sensors].channel = c;
       num_sensors = min(max_sensors, ++num_sensors);
     }
@@ -136,6 +139,17 @@ void setup() {
       if (sensors.isConnected(zones[z].sensor.address) && zones[z].sensor.channel >= 0) {
         Serial.printf("    Sensor for zone %i found\n", z);
         zones[z].sensor.channel = c;
+      }
+    }
+    for (int z = 0; z < num_boilers; z++) {
+      zones[z].temp=-127;
+      if (sensors.isConnected(boilers[z].f_sensor.address) && boilers[z].f_sensor.channel >= 0) {
+        Serial.printf("    Flow sensor for boiler %i found\n", z);
+        boilers[z].f_sensor.channel = c;
+      }
+      if (sensors.isConnected(boilers[z].r_sensor.address) && boilers[z].r_sensor.channel >= 0) {
+        Serial.printf("    Return sensor for boiler %i found\n", z);
+        boilers[z].r_sensor.channel = c;
       }
     }
   }
@@ -150,10 +164,14 @@ void setup() {
   }
   oneWire.reset_search();
   while (oneWire.search(all_sensors[num_sensors].address)){
-    byte *a = all_sensors[num_sensors].address;
-    Serial.printf("Found device addr %02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x\n",
-                   a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7]);
-    num_sensors = min(max_sensors, ++num_sensors);
+      byte *a = all_sensors[num_sensors].address;
+      sprintf(all_sensors[num_sensors].str_address,"%02X%02X%02X%02X%02X%02X%02X%02X", 
+          a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+      sprintf(all_sensors[num_sensors].dot_saddress,"%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x", 
+          a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+      Serial.printf("Found device addr %s\n", all_sensors[num_sensors].dotssaddress);
+      all_sensors[num_sensors].channel = c;
+      num_sensors = min(max_sensors, ++num_sensors);
   }
   for (int z = 0; z < num_zones; z++) {
     zones[z].temp=-127;
@@ -187,18 +205,8 @@ void loop() {
     float demand_temp;
     bool off_flag = 0;
 
-#ifdef USE_DS2482
-    if (zones[z].sensor.channel <= 7 && zones[z].sensor.channel >=0 ){
-      oneWire.setChannel(zones[z].sensor.channel);
-    }
-#endif
+    zones[z].temp = get_temp(zones[z].sensor);
 
-    sensors.requestTemperatures();
-    if (units) {
-      zones[z].temp = sensors.getTempF(zones[z].sensor.address);
-    } else {
-      zones[z].temp = sensors.getTempC(zones[z].sensor.address);
-    }
     if ( ! temp_valid(z)) {
       zones[z].state = 6;
     }
@@ -289,6 +297,10 @@ void loop() {
          Boiler State Machine
    *********************************/
   for (int i = 0; i < num_boilers; i++) {
+ 
+    boilers[i].f_temp = get_temp(boilers[i].f_sensor);
+    boilers[i].r_temp = get_temp(boilers[i].r_sensor);
+ 
     switch (boilers[i].state) {
       case 0: // boiler off
         if (zone_on && boilers[i].mask) {
