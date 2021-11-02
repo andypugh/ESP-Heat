@@ -112,6 +112,7 @@ void read_EEPROM(int p) {
         case 0:
           return;
         case 30062: // un
+          p++; // skip the =
           units = (EEPROM.read(p++) == 'F') ? 1 : 0;
           Serial.printf("Units set to %c\n", (units)?'F':'C');
           break;
