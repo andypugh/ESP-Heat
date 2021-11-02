@@ -5,10 +5,11 @@
 *********/
 
 // Load Wi-Fi library
-#include "credentials.h"
+
 #include <WiFi.h>
-#include <WebServer.h>
-#include "ESP32_MailClient.h"
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include "ESP_Mail_Client.h"
 #include "time.h"
 #include "EEPROM.h"
 // https://github.com/cybergibbons/DS2482_OneWire _NOT_ the standard library
@@ -17,6 +18,7 @@
 #include <DallasTemperature.h>
 #include "config.h"
 #include "globals.h"
+#include "credentials.h"
 
 #define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; content += buffer ;
 //#define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; Serial.println(buffer);
@@ -30,7 +32,7 @@ OneWire oneWire(23); //Bitbanged device, pin 23
 DallasTemperature sensors(&oneWire);
 
 // Set web server port number to 80
-WebServer server(80);
+AsyncWebServer server(80);
 
 int error_flag = 2; // 1 flash is just a heartbeat. use 2 to send reboot email
 
@@ -64,7 +66,7 @@ void setup() {
     connection_count++;
   } while (WiFi.waitForConnectResult() != WL_CONNECTED && connection_count < 60);
 
-  // Print local IP address and start web server
+  // Print local IP address
   Serial.println("");
   Serial.println("WiFi connected.");
   Serial.print("IP address: ");
@@ -72,19 +74,17 @@ void setup() {
   Serial.print("MAC: ");
   Serial.println(WiFi.macAddress());
   Serial.printf("esp_idf_version %s\n", esp_get_idf_version());
-  server.on("/", handle_OnConnect);
-  server.on("/set", handle_OnSet);
-  server.on("/hour", handle_OnHour);
-  server.on("/on_step", handle_OnStep);
-  server.on("/off_step", handle_OffStep);
-  server.on("/auto", handle_OnAuto);
-  server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
-  server.on("/settings", handle_Settings);
-  server.on("/newsettings", handle_newsettings);
-  server.on("/reset", handle_Reset); // external reset
-  server.onNotFound([]() {
-     server.send(404, "text/plain", "FileNotFound");
-  });
+  //server.on("/set", handle_OnSet);
+  //server.on("/hour", handle_OnHour);
+  //server.on("/on_step", handle_OnStep);
+  //server.on("/off_step", handle_OffStep);
+  //server.on("/auto", handle_OnAuto);
+  //server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
+  //server.on("/settings", handle_Settings);
+  //server.on("/newsettings", handle_newsettings);
+  //server.onNotFound([]() {
+  //   request->send(404, "text/plain", "FileNotFound");
+  //});
  
   configTime(0, 3600, ntpServer);
   setenv ("TZ", TZstr, 1);
@@ -167,10 +167,10 @@ void setup() {
       byte *a = all_sensors[num_sensors].address;
       sprintf(all_sensors[num_sensors].str_address,"%02X%02X%02X%02X%02X%02X%02X%02X", 
           a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
-      sprintf(all_sensors[num_sensors].dot_saddress,"%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x", 
+      sprintf(all_sensors[num_sensors].dot_address,"%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x", 
           a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
-      Serial.printf("Found device addr %s\n", all_sensors[num_sensors].dotssaddress);
-      all_sensors[num_sensors].channel = c;
+      Serial.printf("Found device addr %s\n", all_sensors[num_sensors].dot_address);
+      all_sensors[num_sensors].channel = 0;
       num_sensors = min(max_sensors, ++num_sensors);
   }
   for (int z = 0; z < num_zones; z++) {
@@ -182,6 +182,14 @@ void setup() {
 
 #endif
   Serial.printf("Found a total of %i sensors\n", num_sensors);
+
+// Configure and start web server
+// HTTP request pages are separate files
+// And they seem to need to be .h as .cpp doesn't compile
+
+#include "FrontPage.h"
+#include "handleProgramming.h"
+#include "handleSettings.h"
 
   server.begin();
 }

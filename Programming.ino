@@ -1,6 +1,6 @@
 
 // Programming Screen
-void program(int z) {
+void program(AsyncWebServerRequest *request, int z) {
   if (z >= 0 && z < num_zones) {
     String content = "<!DOCTYPE html>";
     __P("<head> </head>");
@@ -53,58 +53,172 @@ void program(int z) {
     __P("<a xlink:href='../'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Back to Main Screen</text></a>");
     __P("</svg>");
     __P("</body></html>");
-    server.send(200, "text/html", content);
+    request->send(200, "text/html", content);
   }
 }
 
-void handle_OnHour() {
-  int z = server.arg("zone").toInt();
-  int h = server.arg("h").toInt();
-  if (z < 0 || z > num_zones - 1 || h < 0 || h > 23) return;
-  zones[z].hours&= 0x00FFFFFF; // set to auto mode if user tries to program
-  zones[z].hours^= (1L << h);
-  EEPROM.write(z * 8 + 1, (zones[z].hours& 0x00FF0000) >> 16);
-  EEPROM.write(z * 8 + 2, (zones[z].hours& 0x0000FF00) >>  8);
-  EEPROM.write(z * 8 + 3, (zones[z].hours& 0x000000FF));
-  EEPROM.commit();
-  program(z);
-}
-void handle_OnAuto() {
-  int z = server.arg("zone").toInt();
-  int a = server.arg("a").toInt();
-  if (z < 0 || z > num_zones - 1 || a < 0 || a > 2) return;
-  zones[z].hours&= 0x00FFFFFF;
-  zones[z].hours += (long)a * 0x1000000;
-  EEPROM.write(z * 8 + 0, (zones[z].hours& 0xFF000000) >> 24);
-  EEPROM.commit();
-  program(z);
-}
-void handle_OnStep() {
-  int z = server.arg("zone").toInt();
-  int d = server.arg("d").toInt();
-  if (z < 0 || z > num_zones - 1) return;
-  zones[z].on_temp += d;
-  EEPROM.write(z * 8 + 4, zones[z].on_temp);
-  EEPROM.commit();
-  program(z);
-}
-void handle_OffStep() {
-  int z = server.arg("zone").toInt();
-  int d = server.arg("d").toInt();
-  if (z < 0 || z > num_zones - 1) return;
-  counter[0] = counter[1] = counter[3] = 0;
-  zones[z].off_temp += d;
-  EEPROM.write(z * 8 + 5, zones[z].off_temp);
-  EEPROM.commit();
-  program(z);
+
+
+int get_int(int p) {
+  int result = 0;
+  while (1) {
+    char c = EEPROM.read(p++);
+    switch (c) {
+      case '=':
+        break;
+      case '&':
+        return result;
+      default:
+        result *= 10;
+        result += (c - '0');
+    }
+  }
 }
 
-void handle_UpdateTemp() {
-  int z = server.arg("zone").toInt();
-  int t = server.arg("temp").toFloat();
-  if (z < 0 || z > num_zones - 1) return;
-  zones[z].temp = t;
-  String content = "<!DOCTYPE html>";
-  __P("Zone %d set to temperature %d\n", z, t);
-  server.send(200, "text/html", content);
+void set_string(char* dest, int p) {
+  char c = EEPROM.read(p++);
+  dest[0] = 0;
+  while (c != '&') {
+    strncat(dest, &c, 1);
+    c = EEPROM.read(p++);
+  }
+}
+
+void write_defaults() {
+  String d = "&nz=5&np=3&nb=1&zn0=Far End&zn1=Solar&zn2=Hall&zn3=Downstairs&zn4=Upstairs&zo0=25&zo1=26&zo2=27"
+             "&zo3=14&zo4=19&zi0=36&zi1=39&zi2=34&zi3=35&zi4=32&zt0=0000000000000000&zt1=0000000000000000"
+             "&zt2=0000000000000000&zt3=0000000000000000&zt4=0000000000000000&bo0=33&bm0=1&bm0=2&bm0=4&bm0=8"
+             "&bm0=16&po0=4&pm0=1&po1=5&pm1=4&pm1=8&po2=12&pm2=1&pm2=2&pm2=4&pm2=8&pm2=16&df3=1&";
+  for (int i = 0; i < d.length(); i++) {
+    EEPROM.write(EEPROM_BASE + i, d.charAt(i));
+  }
+  EEPROM.commit();
+}
+
+void read_EEPROM(int p) {
+  int z;
+  char c;
+
+  for (z = 0; z < max_pumps;  pumps[z++].mask = 0);
+  for (z = 0; z < max_boilers;  boilers[z++].mask = 0);
+
+  Serial.print("\nReading EEPROM\n");
+  if (EEPROM.read(p) != '&') { // no initial setup
+    write_defaults();
+  }
+  while ((c = EEPROM.read(p++)) > 0 && c < 255) {
+    if (c == '&') {
+      switch (256 * EEPROM.read(p++) + EEPROM.read(p++)) {
+        case 0:
+          return;
+        case 30062: // un
+          units = (EEPROM.read(p++) == 'F') ? 1 : 0;
+          Serial.printf("Units set to %c\n", (units)?'F':'C');
+          break;
+        case 28282: // nz
+          num_zones = get_int(p);
+          Serial.printf("num zones set to %i\n", num_zones);
+          break;
+        case 28272: // np
+          num_pumps = get_int(p);
+          Serial.printf("num pumps set to %i\n", num_pumps);
+          break;
+        case 28258: // nb
+          num_boilers = get_int(p);
+          Serial.printf("num boilers set to %i\n", num_boilers);
+          break;
+        case 31342: // zn
+          z = EEPROM.read(p++) - '0';
+          p++; // skip the =
+          set_string(zones[z].name, p);
+          Serial.printf("Zone name %i set to %s\n", z, zones[z].name);
+          break;
+        case 31347: // zs
+          break;
+        case 31343: // zo
+          z = EEPROM.read(p++) - '0';
+          zones[z].out_pin = get_int(p);
+          Serial.printf("Zone %i out pin set to %i\n", z, zones[z].out_pin);
+          break;
+        case 31337: // zi
+          z = EEPROM.read(p++) - '0';
+          zones[z].in_pin = get_int(p);
+          Serial.printf("Zone %i in pin set to %i\n", z, zones[z].in_pin);
+          break;
+        case 31348: // zt
+          z = EEPROM.read(p++) - '0';
+          p++; // skip the '='
+          Serial.printf("Zone %i sensor address set to ", z);
+          for (int i = 0; i < 8; i++) {
+            char h[2];
+            int v;
+            h[0] = EEPROM.read(p++);
+            h[1] = EEPROM.read(p++);
+            v = strtol(h, NULL, 16);
+            Serial.printf("%02x.", v);
+            zones[z].sensor.address[i] = v;
+          }
+          Serial.printf("\n");
+          break;
+        case 25190: // bf
+          z = EEPROM.read(p++) - '0';
+          p++; // skip the '='
+          Serial.printf("Boiler %i flow address set to ", z);
+          for (int i = 0; i < 8; i++) {
+            char h[2];
+            int v;
+            h[0] = EEPROM.read(p++);
+            h[1] = EEPROM.read(p++);
+            v = strtol(h, NULL, 16);
+            Serial.printf("%02x.", v);
+            boilers[z].f_sensor.address[i] = v;
+          }
+          Serial.printf("\n");
+          break;
+        case 25202: // br
+          z = EEPROM.read(p++) - '0';
+          p++; // skip the '='
+          Serial.printf("Boiler %i return address set to ", z);
+          for (int i = 0; i < 8; i++) {
+            char h[2];
+            int v;
+            h[0] = EEPROM.read(p++);
+            h[1] = EEPROM.read(p++);
+            v = strtol(h, NULL, 16);
+            Serial.printf("%02x.", v);
+            boilers[z].r_sensor.address[i] = v;
+          }
+          Serial.printf("\n");
+          break;
+        case 25199: // bo
+          z = EEPROM.read(p++) - '0';
+          boilers[z].out_pin = get_int(p);
+          Serial.printf("Boiler %i out pin set to %i\n", z, boilers[z].out_pin);
+          break;
+        case 25197: // bm
+          z = z = EEPROM.read(p++) - '0';
+          boilers[z].mask |= get_int(p);
+          Serial.printf("Boiler %i mask set to %i\n", z, boilers[z].mask);
+          break;
+        case 28783: // po
+          z = EEPROM.read(p++) - '0';
+          pumps[z].out_pin = get_int(p);
+          Serial.printf("Pump %i out pin set to %i\n", z, pumps[z].out_pin);
+          break;
+        case 28781: // pm
+          z = EEPROM.read(p++) - '0';
+          pumps[z].mask |= get_int(p);
+          Serial.printf("Pump %i mask set to %i\n", z, pumps[z].mask);
+          break;
+        case 25702: // df
+          z = EEPROM.read(p++) - '0';
+          zones[z].default_state = get_int(p);
+          Serial.printf("Zone %i default state set to %i\n", z, zones[z].default_state);
+          break;
+        default:
+          Serial.printf("Case %i %c%c not handled\n", 256 * EEPROM.read(p - 2) + EEPROM.read(p - 1), EEPROM.read(p - 2), EEPROM.read(p - 1));
+          break;
+      }
+    }
+  }
 }

@@ -1,3 +1,5 @@
+#include <HTTPClient.h>
+
 // This function handles blink-codes and watches for a new web interface connection
 // returns a true if there is a connection to handle, NULL otherwise
 void do_status() {
@@ -14,7 +16,6 @@ void do_status() {
     }
   }
   for (i = 0; i < 10; i++) {
-    if (WiFi.status() == WL_CONNECTED) server.handleClient();
     if (i < error_flag) {
       digitalWrite(BLINK_LED, HIGH);
       delay(200);
@@ -32,15 +33,26 @@ void do_status() {
   if (WiFi.status() != WL_CONNECTED) return; // don't attempt to send an email with no connection
   
   if (error_email != "\0") {
-    SMTPData smtpData;
-    smtpData.setLogin(smtp_server, smtp_port, error_email,error_password);
-    smtpData.setSender("Heating Controller", error_email);
-    smtpData.addRecipient(error_recipient);
-    smtpData.setSubject("Heating fault code detected " + WiFi.localIP().toString());
-    String content = "Current status of controller:\n\n";
+
+    SMTPSession smtp;
+    ESP_Mail_Session session;
+    SMTP_Message message;
     
+    session.server.host_name = smtp_server;
+    session.server.port = smtp_port;
+    session.login.email = error_email;
+    session.login.password = error_password;
+    session.login.user_domain = "";
+    
+    message.sender.name = "Heating Controller";
+    message.sender.email = error_email;
+    message.subject = ("Heating fault code detected " + WiFi.localIP().toString()).c_str();
+    message.addRecipient("", error_recipient);
+    String content = "Current status of controller:\n\n";
+    Serial.println("getting external ip");
+
     HTTPClient http;
-    http.begin("https://api.ipify.org/?format=text");
+    http.begin("http://api.ipify.org/?format=text");
     int httpCode = http.GET();
     __P("External IP = http://");
     content += http.getString();
@@ -52,8 +64,21 @@ void do_status() {
     for (int i = 0; i < num_zones; i++) { __P("Valve %d %s\n", i, valve_states[zones[i].state]);}
     __P("\n");
     for (int i = 0; i < num_pumps; i++) { __P("Pump %d %s\n", i, (zone_on & pumps[i].mask)?"On":"Off");}
-    smtpData.setMessage(content, false);
-    MailClient.sendMail(smtpData);
+    
+    message.text.content = content.c_str();
+    message.text.charSet = "us-ascii";
+    message.text.transfer_encoding = Content_Transfer_Encoding::enc_7bit;
+    message.priority = esp_mail_smtp_priority::esp_mail_smtp_priority_low;
+    message.response.notify = esp_mail_smtp_notify_success | esp_mail_smtp_notify_failure | esp_mail_smtp_notify_delay;
+    
+    if (!smtp.connect(&session)){
+      Serial.println("smtp login failed");
+      return;
+    }
+  
+    /* Start sending Email and close the session */
+    if (!MailClient.sendMail(&smtp, &message))  Serial.println("Error sending Email, " + smtp.errorReason());
+    
   }
   if (error_flag == 2) error_flag = 1; // reconnected
   old_error = error_flag;
@@ -68,6 +93,7 @@ double get_temp(DS18B20 s){
 #endif
 
     sensors.requestTemperatures();
+    delay (1000);
     
     if (units) {
       return sensors.getTempF(s.address);

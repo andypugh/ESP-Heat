@@ -1,4 +1,4 @@
-void handle_OnConnect() {
+server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
   // Display the status web page
   char timeStr[50];
   strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo);
@@ -40,13 +40,15 @@ void handle_OnConnect() {
   __P("<a xlink:href='settings'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Setup</text></a>");
   __P("</svg>");
   __P("</body></html>");
-  server.send(200, "text/html", content);
-}
+  request->send(200, "text/html", content);
+});
 
-
-void handle_Reset(){
+server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
   ESP.restart();
-}
+});
+
+
+/*
 
 // There is probably a better way, these functions find the middle of the bounding box of an SVG path.
 int midx(char* p){
@@ -63,3 +65,4 @@ int midx(char* p){
     
   }
 }
+*/

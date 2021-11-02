@@ -11,7 +11,7 @@ const char *TZstr = "GMT0BST,M3.3.0/1,M10.5.0";
 #define max_boilers 4
 #define max_sensors 32
 
-#define USE_DS2482 
+#undef USE_DS2482 
 
 #define EEPROM_BASE 256
 
