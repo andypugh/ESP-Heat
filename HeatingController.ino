@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
 #include "ESP_Mail_Client.h"
 #include "time.h"
 #include "EEPROM.h"
@@ -74,17 +75,6 @@ void setup() {
   Serial.print("MAC: ");
   Serial.println(WiFi.macAddress());
   Serial.printf("esp_idf_version %s\n", esp_get_idf_version());
-  //server.on("/set", handle_OnSet);
-  //server.on("/hour", handle_OnHour);
-  //server.on("/on_step", handle_OnStep);
-  //server.on("/off_step", handle_OffStep);
-  //server.on("/auto", handle_OnAuto);
-  //server.on("/update-temp", handle_UpdateTemp); // take temperature data from remote sensors via URL eg update-temp?zone=3&temp=20
-  //server.on("/settings", handle_Settings);
-  //server.on("/newsettings", handle_newsettings);
-  //server.onNotFound([]() {
-  //   request->send(404, "text/plain", "FileNotFound");
-  //});
  
   configTime(0, 3600, ntpServer);
   setenv ("TZ", TZstr, 1);
@@ -119,6 +109,7 @@ void setup() {
 #ifdef USE_DS2482
 
   Serial.println("Searching for DS18B20 Sensors on DS2482");
+  oneWire.deviceReset();
   for (byte c = 0; c < 8; c++) {
     oneWire.setChannel(c);
     sensors.begin();
@@ -191,6 +182,7 @@ void setup() {
 #include "handleProgramming.h"
 #include "handleSettings.h"
 
+  AsyncElegantOTA.begin(&server);
   server.begin();
 }
 
@@ -207,6 +199,7 @@ void loop() {
   int z = -1; // zone index
   int h = -1; // hour index
   char header[21] = {0}; int r = 0; // header buffer and index, ignore all but the first 20 chars
+  AsyncElegantOTA.loop();
   do_status(); // blink-codes and connection housekeeping
   getLocalTime(&timeinfo);
   for (z = 0; z < num_zones; z++) {

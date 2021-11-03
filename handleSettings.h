@@ -68,7 +68,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
     __P("<td><label for=bo%i>Boiler %i: Pin </label><input type='number' name=bo%i min=0 max=39 value=%i><br>", j, j, j, boilers[j].out_pin);
     
     __P("<label for=bf%i>Feed</label><select name=bf%i>", j, j);
-    __P("<option value='0000000000000000' %s>network data</option>", (boilers[j].f_sensor.channel == -1) ? "selected" : "");
+    __P("<option value='0000000000000000' %s>no sensor</option>", (boilers[j].f_sensor.channel == -1) ? "selected" : "");
     for (int i = 0; i < num_sensors; i++) {
       __P("<option value=%s %s>%s</option>", all_sensors[i].str_address, 
           memcmp(boilers[j].f_sensor.address, all_sensors[i].address, 8) ? "" : "selected",
@@ -76,7 +76,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
     }
     __P("</select><br>");
     __P("<label for=br%i>Return</label><select name=br%i>", j, j);
-        __P("<option value='0000000000000000' %s>network data</option>", (boilers[j].r_sensor.channel == -1) ? "selected" : "");
+        __P("<option value='0000000000000000' %s>no sensor</option>", (boilers[j].r_sensor.channel == -1) ? "selected" : "");
     for (int i = 0; i < num_sensors; i++) {
       __P("<option value=%s %s>%s</option>", all_sensors[i].str_address, 
           memcmp(boilers[j].r_sensor.address, all_sensors[i].address, 8) ? "" : "selected",
@@ -105,7 +105,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
   __P("</tr>");
 
   __P("</table>");
-  __P("<input type='submit' value='Submit'>");
+  __P("<br><br><input type='submit' value='Submit' style='height:50px; width:50px'>");
   __P("</form>");
   __P("</html>");
   request->send(200, "text/html", content);

@@ -46,11 +46,10 @@ void do_status() {
     
     message.sender.name = "Heating Controller";
     message.sender.email = error_email;
-    message.subject = ("Heating fault code detected " + WiFi.localIP().toString()).c_str();
+    message.subject = error_subject;
     message.addRecipient("", error_recipient);
     String content = "Current status of controller:\n\n";
-    Serial.println("getting external ip");
-
+    
     HTTPClient http;
     http.begin("http://api.ipify.org/?format=text");
     int httpCode = http.GET();
@@ -93,7 +92,7 @@ double get_temp(DS18B20 s){
 #endif
 
     sensors.requestTemperatures();
-    delay (1000);
+    delay (100);
     
     if (units) {
       return sensors.getTempF(s.address);
