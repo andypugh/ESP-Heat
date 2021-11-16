@@ -151,7 +151,7 @@ void read_EEPROM(int p) {
           p++; // skip the '='
           Serial.printf("Zone %i sensor address set to ", z);
           for (int i = 0; i < 8; i++) {
-            char h[2];
+            char h[3] = {0};
             int v;
             h[0] = EEPROM.read(p++);
             h[1] = EEPROM.read(p++);
@@ -166,7 +166,7 @@ void read_EEPROM(int p) {
           p++; // skip the '='
           Serial.printf("Boiler %i flow address set to ", z);
           for (int i = 0; i < 8; i++) {
-            char h[2];
+            char h[3] = {0};
             int v;
             h[0] = EEPROM.read(p++);
             h[1] = EEPROM.read(p++);
@@ -181,7 +181,7 @@ void read_EEPROM(int p) {
           p++; // skip the '='
           Serial.printf("Boiler %i return address set to ", z);
           for (int i = 0; i < 8; i++) {
-            char h[2];
+            char h[3] = {0};
             int v;
             h[0] = EEPROM.read(p++);
             h[1] = EEPROM.read(p++);

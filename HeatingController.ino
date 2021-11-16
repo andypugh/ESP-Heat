@@ -109,38 +109,45 @@ void setup() {
 #ifdef USE_DS2482
 
   Serial.println("Searching for DS18B20 Sensors on DS2482");
-  oneWire.deviceReset();
-  for (byte c = 0; c < 8; c++) {
-    oneWire.setChannel(c);
-    sensors.begin();
-    Serial.printf("Checking channel %d\n", c);
-    for (int j = sensors.getDS18Count() - 1; j >= 0; j--){
-      sensors.getAddress(all_sensors[num_sensors].address, j);
-      byte *a = all_sensors[num_sensors].address;
-      sprintf(all_sensors[num_sensors].str_address,"%02X%02X%02X%02X%02X%02X%02X%02X", 
-          a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
-      sprintf(all_sensors[num_sensors].dot_address,"%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x", 
-          a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
-      Serial.printf("Found device addr %s\n", all_sensors[num_sensors].dot_address);
-      all_sensors[num_sensors].channel = c;
-      num_sensors = min(max_sensors, ++num_sensors);
-    }
-    for (int z = 0; z < num_zones; z++) {
-      zones[z].temp=-127;
-      if (sensors.isConnected(zones[z].sensor.address) && zones[z].sensor.channel >= 0) {
-        Serial.printf("    Sensor for zone %i found\n", z);
-        zones[z].sensor.channel = c;
-      }
-    }
-    for (int z = 0; z < num_boilers; z++) {
-      zones[z].temp=-127;
-      if (sensors.isConnected(boilers[z].f_sensor.address) && boilers[z].f_sensor.channel >= 0) {
-        Serial.printf("    Flow sensor for boiler %i found\n", z);
-        boilers[z].f_sensor.channel = c;
-      }
-      if (sensors.isConnected(boilers[z].r_sensor.address) && boilers[z].r_sensor.channel >= 0) {
-        Serial.printf("    Return sensor for boiler %i found\n", z);
-        boilers[z].r_sensor.channel = c;
+  if (!oneWire.checkPresence()){
+    Serial.println("DS2482 NOT found.");
+  }else{
+    Serial.println("DS2482 found.");
+    oneWire.deviceReset();
+    for (byte c = 0; c < 8; c++) {
+      oneWire.setChannel(c);
+      if (oneWire.wireReset()){
+        sensors.begin();
+        Serial.printf("Checking channel %d\n", c);
+        for (int j = sensors.getDS18Count() - 1; j >= 0; j--){
+          sensors.getAddress(all_sensors[num_sensors].address, j);
+          byte *a = all_sensors[num_sensors].address;
+          sprintf(all_sensors[num_sensors].str_address,"%02X%02X%02X%02X%02X%02X%02X%02X", 
+              a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+          sprintf(all_sensors[num_sensors].dot_address,"%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x", 
+              a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+          Serial.printf("Found device addr %s\n", all_sensors[num_sensors].dot_address);
+          all_sensors[num_sensors].channel = c;
+          num_sensors = min(max_sensors, ++num_sensors);
+        }
+        for (int z = 0; z < num_zones; z++) {
+          zones[z].temp=-127;
+          if (sensors.isConnected(zones[z].sensor.address) && zones[z].sensor.channel >= 0) {
+            Serial.printf("    Sensor for zone %i found\n", z);
+            zones[z].sensor.channel = c;
+          }
+        }
+        for (int z = 0; z < num_boilers; z++) {
+          zones[z].temp=-127;
+          if (sensors.isConnected(boilers[z].f_sensor.address) && boilers[z].f_sensor.channel >= 0) {
+            Serial.printf("    Flow sensor for boiler %i found\n", z);
+            boilers[z].f_sensor.channel = c;
+          }
+          if (sensors.isConnected(boilers[z].r_sensor.address) && boilers[z].r_sensor.channel >= 0) {
+            Serial.printf("    Return sensor for boiler %i found\n", z);
+            boilers[z].r_sensor.channel = c;
+          }
+        }
       }
     }
   }
@@ -208,7 +215,8 @@ void loop() {
 
     zones[z].temp = get_temp(zones[z].sensor);
 
-    if ( ! temp_valid(z)) {
+    if ( ! temp_valid(z) && zones[z].state != 6) {
+      zones[z].timeout = time(NULL);
       zones[z].state = 6;
     }
     if ((bitRead(zones[z].hours, timeinfo.tm_hour) || bitRead(zones[z].hours, 24)) && ! bitRead(zones[z].hours, 25)) {
@@ -225,7 +233,7 @@ void loop() {
         if (zones[z].temp < demand_temp - hyst) {
           digitalWrite(zones[z].out_pin, LOW);
           zones[z].state = 1;
-          zones[z].timeout = millis();
+          zones[z].timeout = time(NULL);
           Serial.printf("Turning On zone %d\n", z);
         }
         break;
@@ -235,7 +243,7 @@ void loop() {
           zones[z].state = 2;
           break;
         }
-        if (millis() - zones[z].timeout > 60000) {
+        if (time(NULL) - zones[z].timeout > timeoutTime) {
           error_flag = 5;
           zones[z].state = 5;
         }
@@ -244,7 +252,7 @@ void loop() {
         if (zones[z].temp > demand_temp + hyst) {
           digitalWrite(zones[z].out_pin, HIGH);
           zones[z].state = 3;
-          zones[z].timeout = millis();
+          zones[z].timeout = time(NULL);
           bitClear(zone_on, z);
           Serial.printf("Turning Off zone %d\n", z);
         }
@@ -254,7 +262,7 @@ void loop() {
           zones[z].state = 0;
           break;
         }
-        if (millis() - zones[z].timeout > 60000) { // timeout closing
+        if (time(NULL) - zones[z].timeout > timeoutTime) { // timeout closing
           zones[z].state = 4;
           error_flag = 4;
         }
@@ -280,7 +288,16 @@ void loop() {
         }
         break;
       case 6: // Temperature sensor fault
-        // allow it to fix itself
+        // Give it 15 minutes to fix itself
+        if (time(NULL) - zones[z].timeout > 900){
+#ifdef USE_DS2482 
+          Serial.println("Resetting DS2482");
+          oneWire.deviceReset();
+#endif
+          Serial.println("Resetting oneWire");
+          oneWire.reset();
+          zones[z].timeout = time(NULL);
+        }
         if (temp_valid(z)) {
           digitalWrite(zones[z].out_pin, HIGH);
           zones[z].state = 0;
@@ -312,7 +329,7 @@ void loop() {
         break;
       case 1: // boiler on
         if (! zone_on && boilers[i].mask) {
-          boilers[i].run_on_timer = millis();
+          boilers[i].run_on_timer = time(NULL);
           bitClear(boiler_on, i);
           bitSet(run_on, i);
           boilers[i].state = 2;
@@ -321,7 +338,7 @@ void loop() {
         break;
       case 2: // run-on timer
         // check for timeout _or_ re-activation
-        if (((millis() - boilers[i].run_on_timer) > run_on_time) || (zone_on && boilers[i].mask)) {
+        if (((time(NULL) - boilers[i].run_on_timer) > run_on_time) || (zone_on && boilers[i].mask)) {
           bitClear(run_on, i);
           boilers[i].state = 0;
           break;

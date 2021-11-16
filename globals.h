@@ -17,7 +17,7 @@ struct zone {
   DS18B20 sensor;
   char name[20];
   char shape[50];
-  unsigned long timeout;
+  time_t timeout;
 };
 
 struct pump {
@@ -80,10 +80,3 @@ int run_on; // bit-field
 byte counter[4] = {0}; // up/down arrow accelleration
 struct tm timeinfo;
 char buffer[200];
-
-// Current time
-unsigned long currentTime = millis();
-// Previous time
-unsigned long previousTime = 0;
-// Define timeout time in milliseconds (example: 2000ms = 2s)
-const unsigned long timeoutTime = 2000;

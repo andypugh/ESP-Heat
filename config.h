@@ -11,7 +11,7 @@ const char *TZstr = "GMT0BST,M3.3.0/1,M10.5.0";
 #define max_boilers 4
 #define max_sensors 32
 
-#undef USE_DS2482 
+#define USE_DS2482 
 
 #define EEPROM_BASE 256
 
@@ -27,8 +27,11 @@ int zone_pos[max_zones][4] =        {{350, 60, 190, 190},
                                     {350, 590, 270, 180},
                                     { 50, 690, 270, 180}};
 
-unsigned long  run_on_time = 120000; //milliseconds
+unsigned long  run_on_time = 120; //seconds
 const char* off_colour = "#aaffaa";
 const char* on_colour = "#ffaaaa";
+
+
+const unsigned long timeoutTime = 40;
 
 // **************************/CONFIGURATION***********************************************

@@ -2,7 +2,6 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
   // Display the status web page
   char timeStr[50];
   strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo);
-  Serial.println("New Connection");
   String content = "<!DOCTYPE html>";
   __P("<head><meta http-equiv='refresh' content='60'></head>");
   __P("<html>");
@@ -14,10 +13,10 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Boiler %d %s",
         35 * i + 110, i, boiler_states[boilers[i].state]);
     if (boilers[i].f_sensor.address[0]) {
-      __P("&nbsp;&nbsp;&nbsp;Flow:%d.%1d%s", (int)boilers[i].f_temp, (int)(boilers[i].f_temp * 10) % 10, units ? "&#8457" : "&#8451");
+      __P("&nbsp;&nbsp;&nbsp;Flow: %d.%1d%s", (int)boilers[i].f_temp, (int)(boilers[i].f_temp * 10) % 10, units ? "&#8457" : "&#8451");
     }
     if (boilers[i].r_sensor.address[0]) {
-      __P("&nbsp;&nbsp;&nbsp;Ret:%d.%1d%s", (int)boilers[i].r_temp, (int)(boilers[i].r_temp * 10) % 10, units ? "&#8457" : "&#8451");
+      __P("&nbsp;&nbsp;&nbsp;Ret: %d.%1d%s", (int)boilers[i].r_temp, (int)(boilers[i].r_temp * 10) % 10, units ? "&#8457" : "&#8451");
     }
     __P("</text>");
   }
@@ -49,6 +48,7 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
 });
 
 server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
+  request->redirect("/");
   ESP.restart();
 });
 
