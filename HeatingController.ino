@@ -268,7 +268,7 @@ void loop() {
         }
       case 4: // Stuck Open fault: We can still control temp, and it might close
         if (digitalRead(zones[z].in_pin)) { // valve has finally closed
-          bitSet(zone_on, z);
+          bitClear(zone_on, z);
           zones[z].state = 0;
           error_flag = 1;
           break;
