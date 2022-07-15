@@ -55,6 +55,7 @@ void do_status() {
     int httpCode = http.GET();
     __P("External IP = http://");
     content += http.getString();
+    content += ":8008";
     http.end();
 
     __P("\n\nError code %i\n\n", error_flag);

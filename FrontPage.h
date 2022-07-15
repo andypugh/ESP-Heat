@@ -44,7 +44,8 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
   __P("<a xlink:href='settings'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Setup</text></a>");
   __P("</svg>");
   __P("</body></html>");
-  request->send(200, "text/html", content);
+  if (!request->authenticate(http_user, http_pass)) return request->requestAuthentication();
+   request->send(200, "text/html", content);
 });
 
 server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){

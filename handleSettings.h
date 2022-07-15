@@ -111,6 +111,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
   __P("<br><br><input type='submit' value='Submit' style='height:50px; width:50px'>");
   __P("</form>");
   __P("</html>");
+  if (!request->authenticate(http_user, http_pass)) return request->requestAuthentication();
   request->send(200, "text/html", content);
 });
 

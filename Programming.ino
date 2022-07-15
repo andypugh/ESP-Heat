@@ -53,6 +53,7 @@ void program(AsyncWebServerRequest *request, int z) {
     __P("<a xlink:href='../'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Back to Main Screen</text></a>");
     __P("</svg>");
     __P("</body></html>");
+    if (!request->authenticate(http_user, http_pass)) return request->requestAuthentication();
     request->send(200, "text/html", content);
   }
 }
