@@ -7,10 +7,13 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
   __P("<html>");
   __P("<h1>Settings</h1>");
   __P("<form action='newsettings'>");
-  __P("<label for=un>Temperature units</label><select name=un><option value='C' %s>&#8451</option><option value='F' %s>&#8457</option></select><br>", units ? "" : "selected", units ? "selected" : "");
+  __P("<label for un>Temperature units</label><select name=un><option value='C' %s>&#8451</option><option value='F' %s>&#8457</option></select><br>", units ? "" : "selected", units ? "selected" : "");
   __P("<label for nz>Number of Zones   </label><input type='number' max=%i min=1 name=nz value=%i><br>", max_zones, num_zones);
   __P("<label for np>Number of Pumps  </label><input type='number' max=%i min=1 name=np value=%i><br>", max_pumps, num_pumps);
   __P("<label for nb>Number of Boilers </label><input type='number' max=%i min=1 name=nb value=%i><br><br>", max_boilers, num_boilers);
+  #ifdef USE_DS2482
+  __P("<label for ds>DS2482 reset pin </label><input type='number' max=39 min=-1 name=dp value=%i><br><br>", ds2482_reset);
+  #endif
   __P("<table>");
 
   __P("<tr height='20px'>");

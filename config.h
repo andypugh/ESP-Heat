@@ -19,7 +19,7 @@ byte BLINK_LED = 23;
 float hyst = 0.5; // temperature hysteresis
 
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
-const char* valve_states[7] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "temp sensor FAULT"};
+const char* valve_states[8] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "temp sensor FAULT", "Resetting One-Wire"};
 
 int zone_pos[max_zones][4] =        {{350, 60, 190, 190},
                                     {350, 250, 190, 140},

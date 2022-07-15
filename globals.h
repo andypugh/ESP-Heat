@@ -50,6 +50,7 @@ int num_pumps = 3;
 int num_boilers = 1;
 int num_sensors = 0; // sensors are discovered
 int units = 0; // Set to 1 for Fahrenheit
+int ds2482_reset = 15; 
 
 // GPIO Pins
 //int boiler_out[max_boilers] = {33};

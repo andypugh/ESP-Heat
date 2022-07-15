@@ -88,6 +88,12 @@ void setup() {
     zones[i].off_temp = EEPROM.read(i * 8 + 5); // 0 to 128 resolution 0.5 to allow for Farenheit
     if (zones[i].off_temp > 250) zones[i].off_temp = (units) ? 80 : 10;
   }
+
+#ifdef USE_DS2482 
+  pinMode(ds2482_reset, OUTPUT);
+  digitalWrite(ds2482_reset, HIGH);
+#endif
+
   for (int i = 0; i < num_boilers; i++) {
     pinMode(boilers[i].out_pin, OUTPUT);
     digitalWrite(boilers[i].out_pin, HIGH);
@@ -215,7 +221,7 @@ void loop() {
 
     zones[z].temp = get_temp(zones[z].sensor);
 
-    if ( ! temp_valid(z) && zones[z].state != 6) {
+    if ( ! temp_valid(z) && zones[z].state < 6) {
       zones[z].timeout = time(NULL);
       zones[z].state = 6;
     }
@@ -292,7 +298,9 @@ void loop() {
         if (time(NULL) - zones[z].timeout > 900){
 #ifdef USE_DS2482 
           Serial.println("Resetting DS2482");
-          oneWire.deviceReset();
+          digitalWrite(ds2482_reset, LOW);
+          zones[z].state = 7;
+          break;
 #endif
           Serial.println("Resetting oneWire");
           oneWire.reset();
@@ -306,6 +314,18 @@ void loop() {
           error_flag = 6;
         }
         break;
+      case 7: // hard reset of OneWire bridge
+          Serial.printf("Resetting - %i\n",time(NULL) - zones[z].timeout - 910);
+          if (time(NULL) - zones[z].timeout <  910){
+            break;
+          }
+          Serial.println("DS2482 Enable");
+          digitalWrite(ds2482_reset, HIGH);
+          Serial.println("Resetting oneWire");
+          oneWire.reset();
+          zones[z].timeout = time(NULL);
+          zones[z].state = 6; 
+          break;
       default:
         error_flag = 10;
     }
