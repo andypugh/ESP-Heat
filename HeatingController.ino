@@ -46,14 +46,6 @@ void setup() {
 
   // Get setup from eeprom
   read_EEPROM(EEPROM_BASE);
-
-#ifdef USE_DS2482 
-  if (ds2482_reset >= 0){
-    pinMode(ds2482_reset, OUTPUT);
-    digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense id opposite for single relay
-    delay(1000);
-  }
-#endif
   
   // Connect to Wi-Fi network with SSID and password
   Serial.print(" Connecting to ");
@@ -66,6 +58,7 @@ void setup() {
   WiFi.begin(ssid, password);
   WiFi.mode(WIFI_STA);
   pinMode(BLINK_LED, OUTPUT);
+  pins[BLINK_LED] = 'x';
   do {
     digitalWrite(BLINK_LED, HIGH);
     delay(250);
@@ -100,15 +93,18 @@ void setup() {
 
   for (int i = 0; i < num_boilers; i++) {
     pinMode(boilers[i].out_pin, OUTPUT);
+    pins[boilers[i].out_pin] = 'x';
     digitalWrite(boilers[i].out_pin, HIGH);
   }
   for (int i = 0; i < num_zones; i++) {
     pinMode(zones[i].out_pin, OUTPUT);
+    pins[zones[i].out_pin] = 'x';
     digitalWrite(zones[i].out_pin, HIGH);
   }
   for (int i = 0; i < num_zones; i++) pinMode(zones[i].in_pin, INPUT_PULLUP);
   for (int i = 0; i < num_pumps; i++) {
     pinMode(pumps[i].out_pin, OUTPUT);
+    pins[pumps[i].out_pin] = 'x';
     digitalWrite(pumps[i].out_pin, HIGH);
   }
 
@@ -117,6 +113,13 @@ void setup() {
   num_sensors = 0;
   
 #ifdef USE_DS2482
+
+  if (ds2482_reset >= 0){
+    pinMode(ds2482_reset, OUTPUT);
+    digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense id opposite for single relay
+    pins[ds2482_reset] = 'x';
+    delay(1000);
+  }
 
   Serial.println("Searching for DS18B20 Sensors on DS2482");
   if (!oneWire.checkPresence()){
@@ -191,6 +194,19 @@ void setup() {
 #endif
   Serial.printf("Found a total of %i sensors\n", num_sensors);
 
+// Set unused pins to their default state
+  for(int i = 0; i < 39; i++){
+      if (pins[i] == '0') {
+          pinMode(i, OUTPUT);
+          digitalWrite(i, LOW);
+      } else if (pins[i] == '1') {
+          pinMode(i, OUTPUT);
+          digitalWrite(i, HIGH);
+      } else if (pins[i] == 'i') {
+          pinMode(i, INPUT);
+      }   
+      
+  }
 // Configure and start web server
 // HTTP request pages are separate files
 // And they seem to need to be .h as .cpp doesn't compile

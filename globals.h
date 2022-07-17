@@ -1,3 +1,8 @@
+// Defaut Pin States. 0 out o=low, 1 out high, i input, x ignore
+//                      111111111122222222222333333333
+//            0123456789012345678901234567890123456789
+char* pins = "0xix00xxxxxx0i000000xxxxx000xxxxi0iiixxi";
+
 struct DS18B20 {
   char channel = -1; // DS482 channel number -1 indicates temp over IP.
   DeviceAddress address; // DS18B20 ROM address
