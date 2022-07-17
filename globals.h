@@ -11,7 +11,7 @@ struct zone {
   byte on_temp;
   byte off_temp;
   float temp;
-  byte in_pin;
+  byte in_pin = -1;
   byte out_pin;
   bool default_state;
   DS18B20 sensor;

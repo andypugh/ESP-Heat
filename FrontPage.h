@@ -38,7 +38,7 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     __P("<text y='%d' x='%d' font-size='40' dominant-baseline='middle' text-anchor='middle' fill='0' font-family='Times' >%d.%1d%s</text>",
         zone_pos[i][0] + 60,
         zone_pos[i][1] + zone_pos[i][3] / 2,
-        (int)zones[i].temp, (int)(zones[i].temp * 10) % 10,
+        (int)zones[i].temp, abs((int)(zones[i].temp * 10) % 10),
         units ? "&#8457" : "&#8451");
   }
   __P("<a xlink:href='settings'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Setup</text></a>");

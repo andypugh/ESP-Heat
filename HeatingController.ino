@@ -39,12 +39,21 @@ int error_flag = 2; // 1 flash is just a heartbeat. use 2 to send reboot email
 
 void setup() {
   int connection_count;
+
   Serial.begin(115200);
-  sensors.begin();
+  
   EEPROM.begin(1024);
 
   // Get setup from eeprom
   read_EEPROM(EEPROM_BASE);
+
+#ifdef USE_DS2482 
+  if (ds2482_reset >= 0){
+    pinMode(ds2482_reset, OUTPUT);
+    digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense id opposite for single relay
+    delay(1000);
+  }
+#endif
   
   // Connect to Wi-Fi network with SSID and password
   Serial.print(" Connecting to ");
@@ -89,11 +98,6 @@ void setup() {
     if (zones[i].off_temp > 250) zones[i].off_temp = (units) ? 80 : 10;
   }
 
-#ifdef USE_DS2482 
-  pinMode(ds2482_reset, OUTPUT);
-  digitalWrite(ds2482_reset, HIGH);
-#endif
-
   for (int i = 0; i < num_boilers; i++) {
     pinMode(boilers[i].out_pin, OUTPUT);
     digitalWrite(boilers[i].out_pin, HIGH);
@@ -109,7 +113,7 @@ void setup() {
   }
 
   // Find which DS2482 channel each DS18B20 sensor can be found on
-
+  sensors.begin();
   num_sensors = 0;
   
 #ifdef USE_DS2482
@@ -296,11 +300,13 @@ void loop() {
       case 6: // Temperature sensor fault
         // Give it 15 minutes to fix itself
         if (time(NULL) - zones[z].timeout > 900){
-#ifdef USE_DS2482 
-          Serial.println("Resetting DS2482");
-          digitalWrite(ds2482_reset, LOW);
-          zones[z].state = 7;
-          break;
+#ifdef USE_DS2482
+          if (ds2482_reset >= 0){
+            Serial.printf("Resetting DS2482 HIGH on pin %i\n", ds2482_reset);
+            digitalWrite(ds2482_reset, HIGH);
+            zones[z].state = 7;
+            break;
+          }
 #endif
           Serial.println("Resetting oneWire");
           oneWire.reset();
@@ -320,7 +326,7 @@ void loop() {
             break;
           }
           Serial.println("DS2482 Enable");
-          digitalWrite(ds2482_reset, HIGH);
+          digitalWrite(ds2482_reset, LOW);
           Serial.println("Resetting oneWire");
           oneWire.reset();
           zones[z].timeout = time(NULL);
