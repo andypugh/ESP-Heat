@@ -21,8 +21,13 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     __P("</text>");
   }
   for (int i = 0; i < num_zones; i++) {
-    __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Valve  %d %s</text>",
+    if (zones[i].state < 6){
+        __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Valve  %d %s</text>",
         35 * i + 130 + 30 * num_boilers, i, valve_states[zones[i].state]);
+    } else {
+        __P("<text y='%d' x='80' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Valve  %d sensor FAULT %i s</text>",
+        35 * i + 130 + 30 * num_boilers, i, zones[i].timeout + TIMEOUT - time(NULL));
+    }
   }
   for (int i = 0; i < num_pumps; i++) {
     __P("<text y='%d' x='475' font-size='30' dominant-baseline='middle' text-anchor='left' fill='0' font-family='Times' >Pump  %d %s</text>",
@@ -50,6 +55,10 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
 
 server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
   request->redirect("/");
+  if (ds2482_reset >= 0){
+    digitalWrite(ds2482_reset, HIGH);
+    delay(1000);
+  }
   ESP.restart();
 });
 

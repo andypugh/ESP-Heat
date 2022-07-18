@@ -109,24 +109,27 @@ void setup() {
   }
 
   // Find which DS2482 channel each DS18B20 sensor can be found on
-  sensors.begin();
+
   num_sensors = 0;
   
 #ifdef USE_DS2482
 
   if (ds2482_reset >= 0){
     pinMode(ds2482_reset, OUTPUT);
-    digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense id opposite for single relay
+    digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense is opposite for single relay
     pins[ds2482_reset] = 'x';
     delay(1000);
-  }
 
+  }
+  sensors.begin();
+    delay(500);
+  oneWire.deviceReset();
+  
   Serial.println("Searching for DS18B20 Sensors on DS2482");
   if (!oneWire.checkPresence()){
     Serial.println("DS2482 NOT found.");
   }else{
     Serial.println("DS2482 found.");
-    oneWire.deviceReset();
     for (byte c = 0; c < 8; c++) {
       oneWire.setChannel(c);
       if (oneWire.wireReset()){
@@ -166,7 +169,7 @@ void setup() {
   }
   
 #else
-
+  sensors.begin;
   Serial.println("Searching for DS18B20 Sensors");
   DeviceAddress addr;
   while (! oneWire.search(addr)){
@@ -315,13 +318,14 @@ void loop() {
         break;
       case 6: // Temperature sensor fault
         // Give it 15 minutes to fix itself
-        if (time(NULL) - zones[z].timeout > 900){
+        if (time(NULL) - zones[z].timeout > TIMEOUT){
 #ifdef USE_DS2482
           if (ds2482_reset >= 0){
             Serial.printf("Resetting DS2482 HIGH on pin %i\n", ds2482_reset);
+            oneWire.deviceReset();
             digitalWrite(ds2482_reset, HIGH);
-            zones[z].state = 7;
-            break;
+            delay(500);
+            digitalWrite(ds2482_reset, LOW);
           }
 #endif
           Serial.println("Resetting oneWire");
@@ -336,18 +340,6 @@ void loop() {
           error_flag = 6;
         }
         break;
-      case 7: // hard reset of OneWire bridge
-          Serial.printf("Resetting - %i\n",time(NULL) - zones[z].timeout - 910);
-          if (time(NULL) - zones[z].timeout <  910){
-            break;
-          }
-          Serial.println("DS2482 Enable");
-          digitalWrite(ds2482_reset, LOW);
-          Serial.println("Resetting oneWire");
-          oneWire.reset();
-          zones[z].timeout = time(NULL);
-          zones[z].state = 6; 
-          break;
       default:
         error_flag = 10;
     }

@@ -86,7 +86,7 @@ void set_string(char* dest, int p) {
 }
 
 void write_defaults() {
-  String d = "&nz=5&np=3&nb=1&dp=0&zn0=Far End&zn1=Solar&zn2=Hall&zn3=Downstairs&zn4=Upstairs&zo0=25&zo1=26&zo2=27"
+  String d = "&nz=5&np=3&nb=1&dp=-1&zn0=Far End&zn1=Solar&zn2=Hall&zn3=Downstairs&zn4=Upstairs&zo0=25&zo1=26&zo2=27"
              "&zo3=14&zo4=19&zi0=36&zi1=39&zi2=34&zi3=35&zi4=32&zt0=0000000000000000&zt1=0000000000000000"
              "&zt2=0000000000000000&zt3=0000000000000000&zt4=0000000000000000&bo0=33&bm0=1&bm0=2&bm0=4&bm0=8"
              "&bm0=16&po0=4&pm0=1&po1=5&pm1=4&pm1=8&po2=12&pm2=1&pm2=2&pm2=4&pm2=8&pm2=16&df3=1&";
@@ -94,6 +94,15 @@ void write_defaults() {
     EEPROM.write(EEPROM_BASE + i, d.charAt(i));
   }
   EEPROM.commit();
+}
+
+void debounce(AsyncWebServerRequest *request, int z){
+  // The authentication results in all URLS being called twice, which is bad
+  // with the programming screen temperatures and clock segments.
+  char ret[14];
+  snprintf(ret, 14, "/set?zone=%02i", z);
+  request->redirect(ret);
+  program(request, z);
 }
 
 void read_EEPROM(int p) {
