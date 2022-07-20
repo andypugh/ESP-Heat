@@ -29,22 +29,22 @@ The shape and position of each room is defined by an SVG path, for example:
 "M250 350 v190 h140 v-190 z"
 So that almost any house layout (or limited graphical elements for tanks etc) can be defined. 
 
-[.thumb]
-![Alt text](FrontPage.png?raw=true "Status screen")
+|![Alt text](FrontPage.png?raw=true "Status screen")}|
+-
 
 Here is one of the programming screens
 
-[.thumb]
-![Alt text](Screenshot.png?raw=true "Programming screen for one zone")
+|![Alt text](Screenshot.png?raw=true "Programming screen for one zone")|
+-
 
 And the setup screen where the pins for each valve and pump etc can be defined, as well
 as the house layout and the temperature sensor allocation. 
 
-[.thumb]
-![Alt text](Settings.png?raw=true "Setup / Configuration Screen")
+|![Alt text](Settings.png?raw=true "Setup / Configuration Screen")|
+-
 
 And here is one iteration of the hardware installed in a consumer unit case with
 Neutrik connectors for the pumps and valves and CB connectors for the temperature sensors:
 
-[.thumb]
-![Alt text](IMG_5434.jpg?raw=true "Hardware")
+|![Alt text](IMG_5434.jpg?raw=true "Hardware")|
+-
