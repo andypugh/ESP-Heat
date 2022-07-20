@@ -324,7 +324,7 @@ void loop() {
             Serial.printf("Resetting DS2482 HIGH on pin %i\n", ds2482_reset);
             oneWire.deviceReset();
             digitalWrite(ds2482_reset, HIGH);
-            delay(500);
+            delay(2000);
             digitalWrite(ds2482_reset, LOW);
           }
 #endif

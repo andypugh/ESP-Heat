@@ -33,7 +33,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
   __P("<tr height='20px'>");
   __P("<td>Zone Shape</td>");
   for (int i = 0; i < num_zones; i++) {
-    __P("<td><textarea name='zs%i' rows='3' cols='15' maxlength=50>%s</textarea></td>", i, "Not yet used");
+    __P("<td><textarea name='zs%i' rows='3' cols='15' maxlength=50>%s</textarea></td>", i, zones[i].shape);
   }
   __P("</tr>")
 

@@ -34,17 +34,13 @@ server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         35 * i + 130 + 30 * num_boilers, i, digitalRead(pumps[i].out_pin)?"Off":"On");
   }
   for (int i = 0; i < num_zones; i++) {
-    __P("<a xlink:href='set?zone=%d'><rect y='%d' x='%d' height='%d' width='%d' style='fill:%s;stroke:#000000;stroke-width:3'/></a>",
-        i, zone_pos[i][0], zone_pos[i][1], zone_pos[i][2], zone_pos[i][3], bitRead(zone_on, i) ? on_colour : off_colour);
+    __P("<a xlink:href='set?zone=%d'><path d='%s' style='fill:%s;stroke:#000000;stroke-width:3'/></a>",
+        i, zones[i].shape, bitRead(zone_on, i) ? on_colour : off_colour);
     __P("<text y='%d' x='%d' font-size='20' dominant-baseline='middle' text-anchor='middle' fill='0' font-family='Times' >%s</text>",
-        zone_pos[i][0] + zone_pos[i][2] - 20,
-        zone_pos[i][1] + zone_pos[i][3] / 2,
-        zones[i].name);
+        zones[i].bottom -20, zones[i].middle, zones[i].name);
     __P("<text y='%d' x='%d' font-size='40' dominant-baseline='middle' text-anchor='middle' fill='0' font-family='Times' >%d.%1d%s</text>",
-        zone_pos[i][0] + 60,
-        zone_pos[i][1] + zone_pos[i][3] / 2,
-        (int)zones[i].temp, abs((int)(zones[i].temp * 10) % 10),
-        units ? "&#8457" : "&#8451");
+        zones[i].top +60, zones[i].middle,
+        (int)zones[i].temp, abs((int)(zones[i].temp * 10) % 10), units ? "&#8457" : "&#8451");
   }
   __P("<a xlink:href='settings'><text y='650' x='60' font-size='20' fill='#0000FF' font-family='Times' >Setup</text></a>");
   __P("</svg>");
@@ -61,23 +57,3 @@ server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
   }
   ESP.restart();
 });
-
-
-/*
-
-// There is probably a better way, these functions find the middle of the bounding box of an SVG path.
-int midx(char* p){
-  int x, y;
-  char *c;
-  int xmax = 0;
-  int xmin = 1000;
-  c = strtok(p, " \0");
-  while (c != NULL) {
-    switch (*c){
-      case 'M':
-      sscanf(strtok(NULL, " \0"), "%d", &x);
-    }
-    
-  }
-}
-*/

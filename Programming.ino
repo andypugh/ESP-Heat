@@ -89,11 +89,82 @@ void write_defaults() {
   String d = "&nz=5&np=3&nb=1&dp=-1&zn0=Far End&zn1=Solar&zn2=Hall&zn3=Downstairs&zn4=Upstairs&zo0=25&zo1=26&zo2=27"
              "&zo3=14&zo4=19&zi0=36&zi1=39&zi2=34&zi3=35&zi4=32&zt0=0000000000000000&zt1=0000000000000000"
              "&zt2=0000000000000000&zt3=0000000000000000&zt4=0000000000000000&bo0=33&bm0=1&bm0=2&bm0=4&bm0=8"
-             "&bm0=16&po0=4&pm0=1&po1=5&pm1=4&pm1=8&po2=12&pm2=1&pm2=2&pm2=4&pm2=8&pm2=16&df3=1&";
+             "&bm0=16&po0=4&pm0=1&po1=5&pm1=4&pm1=8&po2=12&pm2=1&pm2=2&pm2=4&pm2=8&pm2=16&df3=1"
+             "&zs0=M100 100 h10 v10 h-10 z&zs1=M100 100 h10 v10 h-10 z&zs2=M100 100 h10 v10 h-10 z"
+             "&zs3=M100 100 h10 v10 h-10 z&zs4=M100 100 h10 v10 h-10 z";
   for (int i = 0; i < d.length(); i++) {
     EEPROM.write(EEPROM_BASE + i, d.charAt(i));
   }
   EEPROM.commit();
+}
+
+void parse_svg(int z){
+  // Find where to place captions on an SVG shape
+  int p = 0;
+  int x, y;
+  int t1, t2;
+  int maxx = -10000;
+  int minx = 10000;
+  int maxy = -10000;
+  int miny = 10000;
+  int ret;
+
+  // FIXME: Do curves better, and arcs at all. 
+  
+  while (p < 50) {
+    switch (zones[z].shape[p]){
+    case 'M':
+      ret = sscanf(zones[z].shape + p, "M%i %i", &x, &y);
+      break;
+    case 'm':
+      ret = sscanf(zones[z].shape + p, "m%i %i", &t1, &t2);
+      x = x + t1;
+      y = y + t2;
+      break;
+    case 'H':
+      ret = sscanf(zones[z].shape + p, "H%i", &x);
+      break;
+    case 'h':
+      ret = sscanf(zones[z].shape + p, "h%i", &t1);
+      x = x + t1;
+      break;
+    case 'V':
+      ret = sscanf(zones[z].shape + p, "V%i", &y);
+      break;
+    case 'v':
+      ret = sscanf(zones[z].shape + p, "v%i", &t1);
+      y = y + t1;
+      break;
+    case 'L':
+      ret = sscanf(zones[z].shape + p, "L%i %i", &x, &y);
+      break;
+    case 'l':
+      ret = sscanf(zones[z].shape + p, "l%i %i", &t1, &t2);
+      x = x + t1;
+      y = y + t2;
+      break;
+    case 'C':
+      ret = sscanf(zones[z].shape + p, "C%*i %*i,%*i %*i,%i %i", &x, &y);
+      break;
+    case 'c':
+      ret = sscanf(zones[z].shape + p, "c%*i %*i,%*i %*i,%i %i", &t1, &t2);
+      x = x + t1;
+      y = y + t2;
+      break;
+    case 0: // end of string
+      zones[z].middle = (minx + maxx) / 2;
+      zones[z].top = miny;
+      zones[z].bottom = maxy;
+      break;
+    }
+    maxx = max(x, maxx);
+    minx = min(x, minx);
+    maxy = max(y, maxy);
+    miny = min(y, miny);
+    
+    p++;
+    
+  }
 }
 
 void debounce(AsyncWebServerRequest *request, int z){
@@ -147,8 +218,6 @@ void read_EEPROM(int p) {
           p++; // skip the =
           set_string(zones[z].name, p);
           Serial.printf("Zone name %i set to %s\n", z, zones[z].name);
-          break;
-        case 31347: // zs
           break;
         case 31343: // zo
           z = EEPROM.read(p++) - '0';
@@ -229,6 +298,13 @@ void read_EEPROM(int p) {
           z = EEPROM.read(p++) - '0';
           zones[z].default_state = get_int(p);
           Serial.printf("Zone %i default state set to %i\n", z, zones[z].default_state);
+          break;
+        case 31347: // zs
+          z = EEPROM.read(p++) - '0';
+          p++; // skip the =
+          set_string(zones[z].shape, p);
+          parse_svg(z);
+          Serial.printf("Zone %i shape %s. Mid %i Top %i Btm %i\n", z, zones[z].shape, zones[z].middle, zones[z].top, zones[z].bottom);
           break;
         default:
           Serial.printf("Case %i %c%c not handled\n", 256 * EEPROM.read(p - 2) + EEPROM.read(p - 1), EEPROM.read(p - 2), EEPROM.read(p - 1));

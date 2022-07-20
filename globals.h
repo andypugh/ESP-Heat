@@ -21,7 +21,10 @@ struct zone {
   bool default_state;
   DS18B20 sensor;
   char name[20];
-  char shape[50];
+  char shape[50]; // room shape
+  int middle; // room legend positions
+  int top;
+  int bottom;
   time_t timeout;
 };
 
