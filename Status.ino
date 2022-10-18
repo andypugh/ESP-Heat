@@ -32,8 +32,7 @@ void do_status() {
   if (old_error == error_flag || error_flag <= 1) return; // don't send same email twice
   if (WiFi.status() != WL_CONNECTED) return; // don't attempt to send an email with no connection
   
-  if (error_email != "\0") {
-
+  if (strlen(error_email) > 6) {
     SMTPSession smtp;
     ESP_Mail_Session session;
     SMTP_Message message;

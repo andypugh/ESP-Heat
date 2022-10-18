@@ -19,7 +19,6 @@
 #include <DallasTemperature.h>
 #include "config.h"
 #include "globals.h"
-#include "credentials.h"
 
 #define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; content += buffer ;
 //#define __P(f_, ...) snprintf (buffer, 200, (f_), ##__VA_ARGS__) ; Serial.println(buffer);
@@ -42,11 +41,13 @@ void setup() {
 
   Serial.begin(115200);
   
-  EEPROM.begin(1024);
+  EEPROM.begin(EEPROM_SIZE);
+
+  pinMode(0, INPUT_PULLUP);
 
   // Get setup from eeprom
   read_EEPROM(EEPROM_BASE);
-  
+  read_EEPROM(CREDENTIALS_BASE);
   // Connect to Wi-Fi network with SSID and password
   Serial.print(" Connecting to ");
   Serial.println(ssid);
@@ -60,6 +61,10 @@ void setup() {
   pinMode(BLINK_LED, OUTPUT);
   pins[BLINK_LED] = 'x';
   do {
+    if (! digitalRead(0)){ // boot button pressed
+      Serial.println("boot button");
+      AP_mode();
+    }
     digitalWrite(BLINK_LED, HIGH);
     delay(250);
     WiFi.begin(ssid, password);
@@ -217,7 +222,6 @@ void setup() {
 #include "FrontPage.h"
 #include "handleProgramming.h"
 #include "handleSettings.h"
-
   AsyncElegantOTA.begin(&server);
   server.begin();
 }

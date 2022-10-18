@@ -29,7 +29,7 @@ The shape and position of each room is defined by an SVG path, for example:
 "M250 350 v190 h140 v-190 z"
 So that almost any house layout (or limited graphical elements for tanks etc) can be defined. 
 
-<kbd>![Alt text](FrontPage.png?raw=true "Status screen")}</kbd>
+<kbd>![Alt text](FrontPage.png?raw=true "Status screen")</kbd>
 
 Here is one of the programming screens
 

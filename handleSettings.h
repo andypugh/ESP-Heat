@@ -110,6 +110,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
   __P("</table>");
   __P("<br><br><input type='submit' value='Submit' style='height:50px; width:50px'>");
   __P("</form>");
+  __P("<br><br><a href='credentials'>Network Settings</a>");
   __P("</html>");
   if (!request->authenticate(http_user, http_pass)) return request->requestAuthentication();
   request->send(200, "text/html", content);
@@ -117,20 +118,7 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
 
 
 server.on("/newsettings", HTTP_GET, [](AsyncWebServerRequest *request){
-  String d = "&";
-  int i;
-  for (i = 0; i < request->args(); i++) {
-    d = d + request->argName(i) + "=" + request->arg(i) + "&";
-  }
-  Serial.println("Writing to EEPROM");
-  Serial.println(d);
-  for (i = 0; i < d.length(); i++) {
-    EEPROM.write(EEPROM_BASE + i, d.charAt(i));
-  }
-  for (; i < d.length() + 8; i++) {
-    EEPROM.write(EEPROM_BASE + i, 0);
-  }
-  EEPROM.commit();
+  write_EEPROM(EEPROM_BASE, request);
   read_EEPROM(EEPROM_BASE);
   request->redirect("/");
 });

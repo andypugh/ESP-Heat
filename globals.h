@@ -89,3 +89,18 @@ int run_on; // bit-field
 byte counter[4] = {0}; // up/down arrow accelleration
 struct tm timeinfo;
 char buffer[200];
+
+//Network credentials
+char ssid[33] = "ssid";
+char password[33] = "password";
+char error_subject[33] = "Heating Fault Detected";
+char error_email[33] = "None";
+char error_recipient[33] = "your@email.address";
+char error_password[33] = "password";
+char smtp_server[33]  = "mail.mail.com";
+int smtp_port = 465;
+char http_user[33] = "admin";
+char http_pass[33] = "admin";
+char hostname[33] = "heating";
+char ntpServer[33] = "pool.ntp.org";
+char TZstr[33] = "GMT0BST,M3.3.0/1,M10.5.0";
