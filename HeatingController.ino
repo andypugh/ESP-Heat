@@ -246,6 +246,8 @@ void loop() {
     float demand_temp;
     bool off_flag = 0;
 
+    Serial.printf("Zone %i State %i\n", z, zones[z].state);
+    
     zones[z].temp = get_temp(zones[z].sensor);
 
     if ( ! temp_valid(z) && zones[z].state < 6) {
@@ -330,6 +332,8 @@ void loop() {
             digitalWrite(ds2482_reset, HIGH);
             delay(2000);
             digitalWrite(ds2482_reset, LOW);
+            zones[z].state = 7;
+            break;
           }
 #endif
           Serial.println("Resetting oneWire");
