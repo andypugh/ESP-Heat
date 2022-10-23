@@ -46,8 +46,8 @@ void setup() {
   pinMode(0, INPUT_PULLUP);
 
   // Get setup from eeprom
-  read_EEPROM(EEPROM_BASE);
-  read_EEPROM(CREDENTIALS_BASE);
+  read_EEPROM(EEPROM_BASE, true);
+  read_EEPROM(CREDENTIALS_BASE, false);
   // Connect to Wi-Fi network with SSID and password
   Serial.print(" Connecting to ");
   Serial.println(ssid);
@@ -121,10 +121,11 @@ void setup() {
 
   if (ds2482_reset >= 0){
     pinMode(ds2482_reset, OUTPUT);
+    digitalWrite(ds2482_reset, HIGH);
+    delay(2000);
     digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense is opposite for single relay
     pins[ds2482_reset] = 'x';
     delay(1000);
-
   }
   sensors.begin();
     delay(500);

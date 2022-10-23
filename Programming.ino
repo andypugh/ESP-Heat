@@ -198,13 +198,15 @@ void write_EEPROM(int base, AsyncWebServerRequest *request){
   }
   EEPROM.commit();    
 }
-void read_EEPROM(int p) {
+void read_EEPROM(int p, bool init) {
   int z;
   char c;
-
-  for (z = 0; z < max_pumps;  pumps[z++].mask = 0);
-  for (z = 0; z < max_boilers;  boilers[z++].mask = 0);
-
+  if (init){
+    for (z = 0; z < max_pumps;  pumps[z++].mask = 0);  
+    for (z = 0; z < max_boilers;  boilers[z++].mask = 0);
+    for (z = 0; z < max_zones; zones[z++].default_state = 0);
+  }
+  
   Serial.print("\nReading EEPROM\n");
   if (EEPROM.read(p) != '&') { // no initial setup
     write_defaults();
