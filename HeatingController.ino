@@ -333,8 +333,6 @@ void loop() {
             digitalWrite(ds2482_reset, HIGH);
             delay(2000);
             digitalWrite(ds2482_reset, LOW);
-            zones[z].state = 7;
-            break;
           }
 #endif
           Serial.println("Resetting oneWire");
