@@ -42,7 +42,7 @@ void do_status() {
     session.login.email = error_email;
     session.login.password = error_password;
     session.login.user_domain = "";
-    
+ 
     message.sender.name = "Heating Controller";
     message.sender.email = error_email;
     message.subject = error_subject;
@@ -54,7 +54,6 @@ void do_status() {
     int httpCode = http.GET();
     __P("External IP = http://");
     content += http.getString();
-    content += ":8008";
     http.end();
 
     __P("\n\nError code %i\n\n", error_flag);

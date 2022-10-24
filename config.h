@@ -2,7 +2,6 @@
 
 // maximum num_zones is EEPROM.BASE() / 8
 
-// read_EEPROM() assumes single digit 
 #define max_zones 8
 #define max_pumps 8
 #define max_boilers 4
@@ -19,7 +18,7 @@ byte BLINK_LED = 23;
 float hyst = 0.5; // temperature hysteresis
 
 const char* boiler_states[3] = {"Off", "On", "Run-On"};
-const char* valve_states[8] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "sensor FAULT"};
+const char* valve_states[8] = {"closed", "opening", "open", "closing", "stuck open FAULT", "stuck closed FAULT", "sensor FAULT", ""};
 
 unsigned long  run_on_time = 120; //seconds
 const char* off_colour = "#aaffaa";

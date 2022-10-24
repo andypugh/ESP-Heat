@@ -119,6 +119,16 @@ server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
 
 server.on("/newsettings", HTTP_GET, [](AsyncWebServerRequest *request){
   write_EEPROM(EEPROM_BASE, request);
-  read_EEPROM(EEPROM_BASE);
+  read_EEPROM(EEPROM_BASE, true);
   request->redirect("/");
+});
+
+server.on("/credentials", HTTP_GET, [](AsyncWebServerRequest *request){
+  get_credentials(request);
+  request->redirect("/");
+});
+
+server.on("/network", HTTP_GET, [](AsyncWebServerRequest *request){
+  write_EEPROM(CREDENTIALS_BASE, request);
+  read_EEPROM(CREDENTIALS_BASE, false);
 });
