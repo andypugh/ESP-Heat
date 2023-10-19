@@ -120,17 +120,17 @@ void setup() {
 #ifdef USE_DS2482
 
   if (ds2482_reset >= 0){
-    pinMode(ds2482_reset, OUTPUT);
-    digitalWrite(ds2482_reset, HIGH);
-    delay(2000);
-    digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense is opposite for single relay
+   // pinMode(ds2482_reset, OUTPUT);
+   //digitalWrite(ds2482_reset, HIGH);
+   // delay(1000);
+   // oneWire.deviceReset();
+   // delay(1000);
+   // digitalWrite(ds2482_reset, LOW); // USE NC terminals, but sense is opposite for single relay
     pins[ds2482_reset] = 'x';
-    delay(1000);
+   // delay(2000);
   }
   sensors.begin();
-    delay(500);
-  oneWire.deviceReset();
-  
+  delay(1000);
   Serial.println("Searching for DS18B20 Sensors on DS2482");
   if (!oneWire.checkPresence()){
     Serial.println("DS2482 NOT found.");
