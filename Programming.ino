@@ -1,6 +1,7 @@
 
 // Programming Screen
 void program(AsyncWebServerRequest *request, int z) {
+  int ro = 200, ri = 150;
   if (z >= 0 && z < num_zones) {
     String content = "<!DOCTYPE html>";
     __P("<head> </head>");
@@ -12,7 +13,6 @@ void program(AsyncWebServerRequest *request, int z) {
     __P("<text y='80' x='250' font-size='30' fill='0' text-anchor='middle' font-family='Times' >%s</text>", zones[z].name);
     // Setting clock faces
     for (int h = 0; h < 24; h++) {
-      int ro = 200, ri = 150;
       __P("<a xlink:href='hour?zone=%02d&h=%02d'><path d='M %d %d ", z, h, (int)(ri * sin(0.2618 * h)), (int)(-ri * cos(0.2618 * h)));
       __P("L %d %d ",                                               (int)(ro * sin(0.2618 * h)), (int)(-ro * cos(0.2618 * h)));
       __P("A %d %d 0 0 1 %d %d ",                                   ro, ro, (int)(ro * sin(0.2618 * (h + 1))), (int)(-ro * cos(0.2618 * (h + 1))));
@@ -24,6 +24,9 @@ void program(AsyncWebServerRequest *request, int z) {
       __P("<text x='%d' y='%d' font-size='15' fill='#000000' dominant-baseline='middle' text-anchor='middle' font-family='Times' transform='translate(250, 350)'> %02d </text>",
           (int)((ro + 20) * sin(0.2618 * h)), (int)(-(ro + 20) * cos(0.2618 * h)), h);
     }
+     // Current time indicator
+    __P("<path d='M 0 %d l 10 10 l -20 0 z' transform='rotate (%d 250 350) translate(250 350)'/>", -ri,  (60 * timeinfo.tm_hour + timeinfo.tm_min)/4);
+    Serial.println((60 * timeinfo.tm_hour + timeinfo.tm_min) * 0.25);    // Current time indicator
     // Set / display on temperature
     __P("<rect y='310' x='150' height='80' width='80' style='fill:%s;stroke:#000000;stroke-width:3'/>", on_colour);
     __P("<text y='350' x='190' font-size='30' fill='#000000' dominant-baseline='middle' text-anchor='middle' font-family='Times'> %d.%1d </text>",
