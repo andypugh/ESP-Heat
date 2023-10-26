@@ -53,7 +53,7 @@ server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
   request->redirect("/");
   if (ds2482_reset >= 0){
     digitalWrite(ds2482_reset, HIGH);
-    delay(2000);
+    delay(10000);
     digitalWrite(ds2482_reset, LOW);
   }
   ESP.restart();

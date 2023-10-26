@@ -37,6 +37,8 @@ void do_status() {
     ESP_Mail_Session session;
     SMTP_Message message;
     
+    smtp.debug(1);
+
     session.server.host_name = smtp_server;
     session.server.port = smtp_port;
     session.login.email = error_email;

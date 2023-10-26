@@ -24,7 +24,6 @@ void program(AsyncWebServerRequest *request, int z) {
       __P("<text x='%d' y='%d' font-size='15' fill='#000000' dominant-baseline='middle' text-anchor='middle' font-family='Times' transform='translate(250, 350)'> %02d </text>",
           (int)((ro + 20) * sin(0.2618 * h)), (int)(-(ro + 20) * cos(0.2618 * h)), h);
     }
-     // Current time indicator
     __P("<path d='M 0 %d l 10 10 l -20 0 z' transform='rotate (%d 250 350) translate(250 350)'/>", -ri,  (60 * timeinfo.tm_hour + timeinfo.tm_min)/4);
     Serial.println((60 * timeinfo.tm_hour + timeinfo.tm_min) * 0.25);    // Current time indicator
     // Set / display on temperature

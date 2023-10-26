@@ -237,6 +237,7 @@ bool temp_valid(int z) {
 }
 
 void loop() {
+  int t_fault = 0;
   int z = -1; // zone index
   int h = -1; // hour index
   char header[21] = {0}; int r = 0; // header buffer and index, ignore all but the first 20 chars
@@ -246,25 +247,46 @@ void loop() {
   for (z = 0; z < num_zones; z++) {
     float demand_temp;
     bool off_flag = 0;
+    bool override = 0;
 
     zones[z].temp = get_temp(zones[z].sensor);
 
-    if ( ! temp_valid(z) && zones[z].state < 6) {
-      zones[z].timeout = time(NULL);
-      zones[z].state = 6;
-    }
     if ((bitRead(zones[z].hours, timeinfo.tm_hour) || bitRead(zones[z].hours, 24)) && ! bitRead(zones[z].hours, 25)) {
       demand_temp = zones[z].on_temp / 2.0;
     } else {
       demand_temp = zones[z].off_temp / 2.0;
       off_flag = true; // Used to reset valve-stuck-closed
     }
+
+    if ( ! temp_valid(z)) {
+      t_fault++;
+      override = zones[z].default_state && ! off_flag;
+      if (error_flag != 6){
+        zones[z].timeout = time(NULL);
+        error_flag = 6;
+      } else {
+        if (time(NULL) - zones[z].timeout > TIMEOUT){
+#ifdef USE_DS2482
+          if (ds2482_reset >= 0){
+            Serial.printf("Resetting DS2482 HIGH on pin %i\n", ds2482_reset);
+            oneWire.deviceReset();
+            digitalWrite(ds2482_reset, HIGH);
+            delay(10000);
+            digitalWrite(ds2482_reset, LOW);
+          }
+#endif
+          Serial.println("Resetting oneWire");
+          oneWire.reset();
+          zones[z].timeout = time(NULL);
+        }
+      }
+    }
     /*************************************
           Valve control state machine
      *************************************/
     switch (zones[z].state) {
       case 0: // closed
-        if (zones[z].temp < demand_temp - hyst) {
+        if (zones[z].temp < demand_temp - hyst || override) {
           digitalWrite(zones[z].out_pin, LOW);
           zones[z].state = 1;
           zones[z].timeout = time(NULL);
@@ -283,7 +305,7 @@ void loop() {
         }
         break;
       case 2: // Valve opened
-        if (zones[z].temp > demand_temp + hyst) {
+        if (zones[z].temp > demand_temp + hyst  && ! override) {
           digitalWrite(zones[z].out_pin, HIGH);
           zones[z].state = 3;
           zones[z].timeout = time(NULL);
@@ -321,34 +343,12 @@ void loop() {
           error_flag = 1;
         }
         break;
-      case 6: // Temperature sensor fault
-        // Give it 15 minutes to fix itself
-        if (time(NULL) - zones[z].timeout > TIMEOUT){
-#ifdef USE_DS2482
-          if (ds2482_reset >= 0){
-            Serial.printf("Resetting DS2482 HIGH on pin %i\n", ds2482_reset);
-            oneWire.deviceReset();
-            digitalWrite(ds2482_reset, HIGH);
-            delay(2000);
-            digitalWrite(ds2482_reset, LOW);
-          }
-#endif
-          Serial.println("Resetting oneWire");
-          oneWire.reset();
-          zones[z].timeout = time(NULL);
-        }
-        if (temp_valid(z)) {
-          digitalWrite(zones[z].out_pin, HIGH);
-          zones[z].state = 0;
-          error_flag = 1;
-        } else {
-          error_flag = 6;
-        }
-        break;
       default:
         error_flag = 10;
     }
   }
+
+  if (t_fault == 0 && error_flag == 6) error_flag = 1;
 
   /*********************************
          Boiler State Machine
