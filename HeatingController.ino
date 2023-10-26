@@ -247,7 +247,6 @@ void loop() {
   for (z = 0; z < num_zones; z++) {
     float demand_temp;
     bool off_flag = 0;
-    bool override = 0;
 
     zones[z].temp = get_temp(zones[z].sensor);
 
@@ -260,7 +259,17 @@ void loop() {
 
     if ( ! temp_valid(z)) {
       t_fault++;
-      override = zones[z].default_state && ! off_flag;
+      // Handle default behaviour in faulted state
+      if (zones[z].default_state) {
+        if (off_flag) {
+          demand_temp = -250;
+        } else {
+          demand_temp = +250;
+        }
+      } else {
+        demand_temp = -250;
+      }
+
       if (error_flag != 6){
         zones[z].timeout = time(NULL);
         error_flag = 6;
@@ -286,7 +295,7 @@ void loop() {
      *************************************/
     switch (zones[z].state) {
       case 0: // closed
-        if (zones[z].temp < demand_temp - hyst || override) {
+        if (zones[z].temp < demand_temp - hyst) {
           digitalWrite(zones[z].out_pin, LOW);
           zones[z].state = 1;
           zones[z].timeout = time(NULL);
@@ -305,7 +314,7 @@ void loop() {
         }
         break;
       case 2: // Valve opened
-        if (zones[z].temp > demand_temp + hyst  && ! override) {
+        if (zones[z].temp > demand_temp + hyst) {
           digitalWrite(zones[z].out_pin, HIGH);
           zones[z].state = 3;
           zones[z].timeout = time(NULL);
